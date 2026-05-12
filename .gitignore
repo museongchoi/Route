@@ -5,11 +5,16 @@ DerivedDataCache/
 Intermediate/
 Saved/
 
+/Route.sln
+# Do not ignore external server solution files
+# Route_BackendServer/*.sln should be tracked
+# Route_TCPServer/*.sln should be tracked
+
 # Visual Studio / Rider / IDE
 .vs/
 .vscode/
 .idea/
-*.sln
+# *.sln
 *.suo
 *.user
 *.userosscache
