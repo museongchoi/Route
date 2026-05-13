@@ -1,14 +1,34 @@
-﻿// Route_BackendServer.cpp : 이 파일에는 'main' 함수가 포함됩니다. 거기서 프로그램 실행이 시작되고 종료됩니다.
-//
+﻿#include <iostream>
 
-#include <iostream>
+#pragma comment(lib, "ws2_32.lib")
+
+#include "httplib.h"
+
+using namespace std;
 
 int main()
 {
-    std::cout << "RouteBackendServer started." << std::endl;
-    std::cout << "Press Enter to exit..." << std::endl;
+	httplib::Server Svr;
+	Svr.Get("/health", [](const httplib::Request& Req, httplib::Response& Res)
+	{
+		Res.set_content(
+			R"({"status":"ok","server":"RouteBackendServer"})",
+			"application/json"
+		);
+	});
 
-    std::cin.get();
+	cout << "========================================" << endl;
+	cout << " RouteBackendServer started." << endl;
+	cout << " Listening on http://localhost:8080" << endl;
+	cout << " Health Check: http://localhost:8080/health" << endl;
+	cout << "========================================" << endl;
+	
+	if (!Svr.listen("0.0.0.0", 8080))
+	{
+		cout << "Failed to start RouteBackendServer." << endl;
+		return 1;
+	}
+
     return 0;
 }
 
