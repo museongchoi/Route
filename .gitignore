@@ -10,6 +10,9 @@ Saved/
 # Route_BackendServer/*.sln should be tracked
 # Route_TCPServer/*.sln should be tracked
 
+# Third-party local libraries
+ThirdParty/MySQLConnector/
+
 # Visual Studio / Rider / IDE
 .vs/
 .vscode/
