@@ -13,6 +13,9 @@ Saved/
 # Third-party local libraries
 ThirdParty/MySQLConnector/
 
+# Local secret config
+Route_BackendServer/Config/DBSecrets.ini
+
 # Visual Studio / Rider / IDE
 .vs/
 .vscode/
