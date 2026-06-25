@@ -189,28 +189,6 @@ int main()
 					return;
 				}
 
-				//unique_ptr<sql::PreparedStatement> CheckStmt(
-				//	Conn->prepareStatement(
-				//		"SELECT account_id FROM accounts WHERE login_id = ?"
-				//	)
-				//);
-
-				//CheckStmt->setString(1, LoginId);
-
-				//unique_ptr<sql::ResultSet> Result(
-				//	CheckStmt->executeQuery()
-				//);
-
-				//if (Result->next())
-				//{
-				//	Res.status = 409;
-				//	Res.set_content(
-				//		R"({"success":false,"message":"duplicated login_id"})",
-				//		"application/json"
-				//	);
-				//	return;
-				//}
-
 				// 6. 계정 생성
 				// login_id 중복은 accounts.login_id 의 UNIQUE 제약 조건으로 검사.
 				unique_ptr<sql::PreparedStatement> InsertStmt(
@@ -263,6 +241,116 @@ int main()
 					"application/json"
 				);
 			}
+	});
+
+	// POST /login 로그인
+	Svr.Post("/login", [](const httplib::Request& Req, httplib::Response& Res)
+	{
+		try
+		{
+			// Request Body 의 JSON 파싱
+			const json ReqJson = json::parse(Req.body);
+
+			// 필수 필드 확인
+			if (!ReqJson.contains("login_id") || !ReqJson.contains("password"))
+			{
+				Res.status = 400;
+				Res.set_content(
+					R"({"success":false,"message":"invalid request"})",
+					"application/json"
+				);
+				return;
+			}
+
+			// JSON 값 추출
+			const string LoginID = ReqJson["login_id"].get<string>();
+			const string Password = ReqJson["password"].get<string>();
+
+			// 빈 문자열 확인
+			if (LoginID.empty() || Password.empty())
+			{
+				Res.status = 400;
+				Res.set_content(
+					R"({"success":false,"message":"invalid request"})",
+					"application/json"
+				);
+				return;
+			}
+			
+			// MySQL 연결
+			unique_ptr<sql::Connection> Conn = CreateMySqlConnection();
+
+			if (!Conn)
+			{
+				Res.status = 500;
+				Res.set_content(
+					R"({"success":false,"message":"database connection failed")",
+					"application/json"
+				);
+				return;
+			}
+
+			// ID와 비밀번호가 모두 일치하는 계정 조회
+			unique_ptr<sql::PreparedStatement> LoginStmt(
+				Conn->prepareStatement(
+					"SELECT account_id, nickname "
+					"FROM accounts "
+					"WHERE login_id = ? "
+					"AND pw_hash = SHA2(?, 256)"
+				)
+			);
+
+			LoginStmt->setString(1, LoginID);
+			LoginStmt->setString(2, Password);
+
+			unique_ptr<sql::ResultSet> Result(LoginStmt->executeQuery());
+
+			// 조회 결과가 없으면 로그인 실패
+			if (!Result->next())
+			{
+				Res.status = 401;
+				Res.set_content(
+					R"({"success":false,"message":"invalid credentials"})",
+					"application/json"
+				);
+				return;
+			}
+
+			// 로그인 성공 정보 가져오기
+			const int AccountId = Result->getInt("account_id");
+			const string Nickname = Result->getString("nickname").asStdString();
+
+
+			// JSON 응답 생성
+			json ResponseJson;
+			ResponseJson["success"] = true;
+			ResponseJson["account_id"] = AccountId;
+			ResponseJson["nickname"] = Nickname;
+
+			Res.status = 200;
+			Res.set_content(
+				ResponseJson.dump(),
+				"application/json"
+			);
+		}
+		catch (const json::exception& Err)
+		{
+			Res.status = 400;
+			Res.set_content(
+				R"({"success":false,"message":"invalid json"})",
+				"application/json"
+			);
+		}
+		catch (const sql::SQLException& Err)
+		{
+			cout << "MySQL : Login failed. " << Err.what() << endl;
+
+			Res.status = 500;
+			Res.set_content(
+				R"({"success":false,"message":"database error"})",
+				"application/json"
+			);
+		}
 	});
 
 	cout << "========================================" << "\n";
