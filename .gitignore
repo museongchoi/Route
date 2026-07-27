@@ -15,6 +15,7 @@ ThirdParty/MySQLConnector/
 
 # Local secret config
 Route_BackendServer/Config/DBSecrets.ini
+Route_TCPServer/Config/DBSecrets.ini
 
 # Visual Studio / Rider / IDE
 .vs/
