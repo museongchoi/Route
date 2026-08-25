@@ -17,6 +17,8 @@ class ROUTE_API URouteGameInstance : public UGameInstance
 public:
 	virtual void Init() override;
 
+	bool TravelToTestServer();
+
 private:
 	bool RequestServerListFromTcpServer();
 };

@@ -17,6 +17,16 @@ class ROUTE_API ARouteGameMode : public AGameModeBase
 protected:
 	virtual void BeginPlay() override;
 
+	virtual void PostLogin(APlayerController* NewPlayer) override;
+
+	virtual void Logout(AController* ExitingPlayer) override;
+
 private:
 	bool RegisterServerToTcpServer();
+
+	//bool UpdateServerToTcpServer();
+
+private:
+	//int32 CurrentPlayers = 0;
+	//int32 MaxPlayers = 3;
 };
