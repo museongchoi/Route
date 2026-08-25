@@ -21,7 +21,7 @@ string LoadDbPassword()
 
 	if (!DbConfigFile.is_open())
 	{
-		cout << "MySQL : DBSecrets.ini open failed." << "\n";
+		std::cout << "MySQL : DBSecrets.ini open failed." << "\n";
 		return "";
 	}
 
@@ -37,7 +37,7 @@ unique_ptr <sql::Connection> CreateMySqlConnection()
 
 	if (DbPassword.empty())
 	{
-		cout << "MySQL : DB password file not found. " << "\n";
+		std::cout << "MySQL : DB password file not found. " << "\n";
 		return nullptr;
 	}
 
@@ -58,7 +58,7 @@ unique_ptr <sql::Connection> CreateMySqlConnection()
 
 bool TestMySqlConnection()
 {
-	cout << "MySQL : TestMySqlConnection() entered." << "\n";
+	std::cout << "MySQL : TestMySqlConnection() entered." << "\n";
 
 	try
 	{
@@ -66,11 +66,11 @@ bool TestMySqlConnection()
 
 		if (!Conn)
 		{
-			cout << "MySQL : Connection failed." << "\n";
+			std::cout << "MySQL : Connection failed." << "\n";
 			return false;
 		}
 
-		cout << "MySQL : Connection created" << "\n";
+		std::cout << "MySQL : Connection created" << "\n";
 
 		unique_ptr<sql::Statement> Stmt(
 			Conn->createStatement()
@@ -82,13 +82,13 @@ bool TestMySqlConnection()
 
 		if (Result->next())
 		{
-			cout << "MySQL : Connection succeeded" << "\n";
+			std::cout << "MySQL : Connection succeeded" << "\n";
 			return true;
 		}
 	}
 	catch (const sql::SQLException& Err)
 	{
-		cout << "MySQL : Connection failed. " << Err.what() << "\n";
+		std::cout << "MySQL : Connection failed. " << Err.what() << "\n";
 	}
 
 	return false;
@@ -133,7 +133,7 @@ bool SaveOrUpdateServerInstance(const string& ServerName, const string& IpAddres
 		}
 		catch (const sql::SQLException& Err)
 		{
-			cout << "MySQL : SaveOrUpdateServerInstance failed. " << Err.what() << "\n";
+			std::cout << "MySQL : SaveOrUpdateServerInstance failed. " << Err.what() << "\n";
 			return false;
 		}
 	}
@@ -189,10 +189,51 @@ json GetServerListJson()
 	}
 	catch (const sql::SQLException& Err)
 	{
-		cout << "MySQL : GetServerListJson failed. " << Err.what() << "\n";
+		std::cout << "MySQL : GetServerListJson failed. " << Err.what() << "\n";
 
 		ResponseJson["message"] = "database error";
 		return ResponseJson;
+	}
+}
+
+bool UpdateServerInstance(const string& IpAddress, int Port, int CurrentPlayers, int MaxPlayers, const string& Status)
+{
+	try
+	{
+		unique_ptr<sql::Connection> Conn = CreateMySqlConnection();
+
+		if (!Conn)
+		{
+			return false;
+		}
+
+		unique_ptr<sql::PreparedStatement> Stmt(
+			Conn->prepareStatement(
+				"UPDATE server_instances "
+				"SET current_players = ?, "
+				"max_players = ?, "
+				"status = ?, "
+				"last_heartbeat = NOW() "
+				"WHERE ip_address = ? AND port = ?"
+			)
+		);
+
+		Stmt->setInt(1, CurrentPlayers);
+		Stmt->setInt(2, MaxPlayers);
+		Stmt->setString(3, Status);
+		Stmt->setString(4, IpAddress);
+		Stmt->setInt(5, Port);
+
+		const int UpdateRows = Stmt->executeUpdate();
+
+		std::cout << "UpdateRows: " << UpdateRows << "\n";
+
+		return UpdateRows > 0;
+	}
+	catch (const sql::SQLException& Err)
+	{
+		std::cout << "MySQL : UpdateServerInstance failed. " << Err.what() << "\n";
+		return false;
 	}
 }
 
@@ -210,7 +251,7 @@ int main()
 
 	if (StartupResult != 0)
 	{
-		cout << "WSAStartup failed with error: " << StartupResult << "\n";
+		std::cout << "WSAStartup failed with error: " << StartupResult << "\n";
 		return 1;
 	}
 
@@ -223,7 +264,7 @@ int main()
 
 	if (ListenSocket == INVALID_SOCKET)
 	{
-		cout << "socket failed. Error: " << WSAGetLastError() << "\n";
+		std::cout << "socket failed. Error: " << WSAGetLastError() << "\n";
 
 		WSACleanup();
 		return 1;
@@ -245,7 +286,7 @@ int main()
 
 	if (BindResult == SOCKET_ERROR)
 	{
-		cout << "bind failed. Error: " << WSAGetLastError() << "\n";
+		std::cout << "bind failed. Error: " << WSAGetLastError() << "\n";
 
 		closesocket(ListenSocket);
 		WSACleanup();
@@ -261,7 +302,7 @@ int main()
 
 	if (ListenResult == SOCKET_ERROR)
 	{
-		cout << "listen failed. Error: " << WSAGetLastError() << "\n";
+		std::cout << "listen failed. Error: " << WSAGetLastError() << "\n";
 
 		closesocket(ListenSocket);
 		WSACleanup();
@@ -269,13 +310,13 @@ int main()
 		return 1;
 	}
 
-	cout << "Route_TCPServer started." << "\n";
-	cout << "Listening on port " << ServerPort << "\n";
+	std::cout << "Route_TCPServer started." << "\n";
+	std::cout << "Listening on port " << ServerPort << "\n";
 
 	// 6. Client 연결을 반복해서 수락
 	while (true)
 	{
-		cout << "Waiting for client..." << "\n";
+		std::cout << "Waiting for client..." << "\n";
 
 		SOCKET ClientSocket = accept(
 			ListenSocket,
@@ -285,12 +326,12 @@ int main()
 
 		if (ClientSocket == INVALID_SOCKET)
 		{
-			cout << "accept failed. Error: " << WSAGetLastError() << "\n";
+			std::cout << "accept failed. Error: " << WSAGetLastError() << "\n";
 			
 			break;
 		}
 
-		cout << "Client connected. " << "\n";
+		std::cout << "Client connected. " << "\n";
 
 		// 7. Client가 전송한 데이터 수신
 		char ReceiveBuffer[BufferSize]{};
@@ -307,7 +348,7 @@ int main()
 			ReceiveBuffer[ReceivedBytes] = '\0';
 			const string ReceivedMessage(ReceiveBuffer);
 
-			cout << "Received: " << ReceivedMessage << "\n";
+			std::cout << "Received: " << ReceivedMessage << "\n";
 
 			string ResponseMessage;
 
@@ -351,12 +392,12 @@ int main()
 							const int MaxPlayers = RequestJson["max_players"].get<int>();
 							const string Status = RequestJson["status"].get<string>();
 
-							cout << "Register Server Request" << "\n";
-							cout << "ServerName: " << ServerName << "\n";
-							cout << "IpAddress: " << IpAddress << "\n";
-							cout << "Port: " << Port << "\n";
-							cout << "Players: " << CurrentPlayers << " / " << MaxPlayers << "\n";
-							cout << "Status: " << Status << "\n";
+							std::cout << "Register Server Request" << "\n";
+							std::cout << "ServerName: " << ServerName << "\n";
+							std::cout << "IpAddress: " << IpAddress << "\n";
+							std::cout << "Port: " << Port << "\n";
+							std::cout << "Players: " << CurrentPlayers << " / " << MaxPlayers << "\n";
+							std::cout << "Status: " << Status << "\n";
 
 							const bool bSaved = SaveOrUpdateServerInstance(ServerName, IpAddress, Port, CurrentPlayers, MaxPlayers, Status);
 							
@@ -380,11 +421,56 @@ int main()
 					}
 					else if (MessageType == "REQUEST_SERVER_LIST")
 					{
-						cout << "Request Server List" << "\n";
+						std::cout << "Request Server List" << "\n";
 
 						json ResponseJson = GetServerListJson();
 
 						ResponseMessage = ResponseJson.dump() + "\n";
+					}
+					else if (MessageType == "UPDATE_SERVER")
+					{
+						std::cout << "Update Server Request" << "\n";
+
+						if (!RequestJson.contains("ip_address") || !RequestJson.contains("port") || 
+							!RequestJson.contains("current_players") || !RequestJson.contains("max_players") || 
+							!RequestJson.contains("status"))
+						{
+							json ResponseJson;
+							ResponseJson["success"] = false;
+							ResponseJson["message"] = "invalid request";
+
+							ResponseMessage = ResponseJson.dump() + "\n";
+						}
+						else
+						{
+							const string IpAddress = RequestJson["ip_address"].get<string>();
+							const int Port = RequestJson["port"].get<int>();
+							const int CurrentPlayers = RequestJson["current_players"].get<int>();
+							const int MaxPlayers = RequestJson["max_players"].get<int>();
+							const string Status = RequestJson["status"].get<string>();
+
+							cout << "IpAddress: " << IpAddress << "\n";
+							cout << "Port: " << Port << "\n";
+							cout << "Players: " << CurrentPlayers << " / " << MaxPlayers << "\n";
+							cout << "Status: " << Status << "\n";
+
+							const bool bUpdated = UpdateServerInstance(IpAddress, Port, CurrentPlayers, MaxPlayers, Status);
+
+							json ResponseJson;
+
+							if (bUpdated)
+							{
+								ResponseJson["success"] = true;
+								ResponseJson["message"] = "UPDATE_SERVER_OK";
+							}
+							else
+							{
+								ResponseJson["success"] = false;
+								ResponseJson["message"] = "database error";
+							}
+
+							ResponseMessage = ResponseJson.dump() + "\n";
+						}
 					}
 					else
 					{
@@ -415,27 +501,27 @@ int main()
 
 			if (SentBytes == SOCKET_ERROR)
 			{
-				cout << "send failed. Error: " << WSAGetLastError() << "\n";
+				std::cout << "send failed. Error: " << WSAGetLastError() << "\n";
 
 			}
 			else
 			{
-				cout << "Sent: " << ResponseMessage << "\n";
+				std::cout << "Sent: " << ResponseMessage << "\n";
 			}
 		}
 		else if (ReceivedBytes == 0)
 		{
-			cout << "Client disconnected without data." << "\n";
+			std::cout << "Client disconnected without data." << "\n";
 		}
 		else
 		{
-			cout << "recv failed. Error: " << WSAGetLastError() << "\n";
+			std::cout << "recv failed. Error: " << WSAGetLastError() << "\n";
 		}
 
 		// 9. 현재 Client 연결 종료
 		closesocket(ClientSocket);
 
-		cout << "Client connection closed." << "\n";
+		std::cout << "Client connection closed." << "\n";
 	}
 
 	// 10. TCPServer 종료 처리
