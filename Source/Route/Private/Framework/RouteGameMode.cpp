@@ -35,13 +35,14 @@ void ARouteGameMode::PostLogin(APlayerController* NewPlayer)
 
 	UE_LOG(LogTemp, Warning, TEXT("RouteGameMode PostLogin"));
 
-	//CurrentPlayers = FMath::Clamp(CurrentPlayers + 1, 0, MaxPlayers);
+	CurrentPlayers = FMath::Clamp(CurrentPlayers + 1, 0, MaxPlayers);
 
-	//UE_LOG(LogTemp, Warning, TEXT("CurrentPlayers increased: %d / %d"), CurrentPlayers, MaxPlayers);
+	UE_LOG(LogTemp, Warning, TEXT("CurrentPlayers increased: %d / %d"), CurrentPlayers, MaxPlayers);
 
 	if (!NewPlayer)
 	{
 		UE_LOG(LogTemp, Error, TEXT("PostLogin NewPlayer is null"));
+		UpdateServerToTcpServer();
 		return;
 	}
 
@@ -55,17 +56,25 @@ void ARouteGameMode::PostLogin(APlayerController* NewPlayer)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Player connected. PlayerState is null."));
 	}
+
+	UpdateServerToTcpServer();
 }
 
 void ARouteGameMode::Logout(AController* ExitingPlayer)
 {
-	Super::Logout(ExitingPlayer);
 
 	UE_LOG(LogTemp, Warning, TEXT("RouteGameMode Logout"));
 
+	CurrentPlayers = FMath::Max(0, CurrentPlayers - 1);
+
+	UE_LOG(LogTemp, Warning, TEXT("CurrentPlayers decreased: %d / %d"), CurrentPlayers, MaxPlayers);
+
 	if (!ExitingPlayer)
 	{
-		UE_LOG(LogTemp, Error, TEXT("Logout ExitingPlayer Controller is null"));
+		UE_LOG(LogTemp, Error, TEXT("Logout ExitingPlayer Controller is null."));
+		UpdateServerToTcpServer();
+
+		Super::Logout(ExitingPlayer);
 		return;
 	}
 
@@ -79,6 +88,10 @@ void ARouteGameMode::Logout(AController* ExitingPlayer)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Player disconnected. PlayerState is null."));
 	}
+
+	UpdateServerToTcpServer();
+
+	Super::Logout(ExitingPlayer);
 }
 
 bool ARouteGameMode::RegisterServerToTcpServer()
@@ -192,5 +205,112 @@ bool ARouteGameMode::RegisterServerToTcpServer()
 
 bool ARouteGameMode::UpdateServerToTcpServer()
 {
-	return false;
+	ISocketSubsystem* SocketSubsystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
+
+	if (!SocketSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("SocketSubsystem is null."));
+		return false;
+	}
+
+	FIPv4Address TcpServerIp;
+
+	if (!FIPv4Address::Parse(TEXT("127.0.0.1"), TcpServerIp))
+	{
+		UE_LOG(LogTemp, Error, TEXT("Invaild TCPServer IP."));
+		return false;
+	}
+
+	TSharedRef<FInternetAddr> TcpServerAddress = SocketSubsystem->CreateInternetAddr();
+	
+	TcpServerAddress->SetIp(TcpServerIp.Value);
+	TcpServerAddress->SetPort(9000);
+
+	FSocket* Socket = SocketSubsystem->CreateSocket(
+		NAME_Stream,
+		TEXT("RouteUpdateServerSocket"),
+		false
+	);
+
+	if (!Socket)
+	{
+		UE_LOG(LogTemp, Error, TEXT("CreateSocket failed."));
+		return false;
+	}
+
+	if (!Socket->Connect(*TcpServerAddress))
+	{
+		UE_LOG(LogTemp, Error, TEXT("Connect to TCPServer failed."));
+
+		Socket->Close();
+		SocketSubsystem->DestroySocket(Socket);
+
+		return false;
+	}
+
+	FString ServerStatus = TEXT("OPEN");
+
+	if (CurrentPlayers >= MaxPlayers)
+	{
+		ServerStatus = TEXT("FULL");
+	}
+
+	const FString UpdateMessage = FString::Printf(
+		TEXT("{\"type\":\"UPDATE_SERVER\",")
+		TEXT("\"ip_address\":\"127.0.0.1\",")
+		TEXT("\"port\":7777,")
+		TEXT("\"current_players\":%d,")
+		TEXT("\"max_players\":%d,")
+		TEXT("\"status\":\"%s\"}\n"),
+		CurrentPlayers,
+		MaxPlayers,
+		*ServerStatus
+	);
+
+	FTCHARToUTF8 ConvertedMessage(*UpdateMessage);
+
+	int32 BytesSent = 0;
+
+	const bool bSent = Socket->Send(
+		reinterpret_cast<const uint8*>(ConvertedMessage.Get()),
+		ConvertedMessage.Length(),
+		BytesSent
+	);
+
+	if (!bSent)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Send UPDATE_SERVER failed."));
+
+		Socket->Close();
+		SocketSubsystem->DestroySocket(Socket);
+
+		return false;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("UPDATE_SERVER sent. Bytes: %d"), BytesSent);
+
+	if (Socket->Wait(ESocketWaitConditions::WaitForRead, FTimespan::FromSeconds(2)))
+	{
+		uint8 ReceiveBuffer[1024]{};
+		int32 BytesRead = 0;
+
+		if (Socket->Recv(ReceiveBuffer, sizeof(ReceiveBuffer) - 1, BytesRead))
+		{
+			ReceiveBuffer[BytesRead] = '\0';
+
+			const FString Response =
+				FString(UTF8_TO_TCHAR(reinterpret_cast<const char*>(ReceiveBuffer)));
+
+			UE_LOG(LogTemp, Log, TEXT("TCPServer Update Response: %s"), *Response);
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No response from TCPServer."));
+	}
+
+	Socket->Close();
+	SocketSubsystem->DestroySocket(Socket);
+
+	return true;
 }

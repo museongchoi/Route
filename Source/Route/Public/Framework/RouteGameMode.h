@@ -24,9 +24,9 @@ protected:
 private:
 	bool RegisterServerToTcpServer();
 
-	//bool UpdateServerToTcpServer();
+	bool UpdateServerToTcpServer();
 
 private:
-	//int32 CurrentPlayers = 0;
-	//int32 MaxPlayers = 3;
+	int32 CurrentPlayers = 0;
+	int32 MaxPlayers = 3;
 };
