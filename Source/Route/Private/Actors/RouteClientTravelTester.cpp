@@ -53,9 +53,10 @@ void ARouteClientTravelTester::RequestTravelToTestServer()
 		return;
 	}
 
-	UE_LOG(LogTemp, Error, TEXT("RouteClientTravelTester calls TravelToTestServer"));
+	UE_LOG(LogTemp, Error, TEXT("RouteClientTravelTester calls TravelToFirstServer"));
 
-	RouteGameInstance->TravelToTestServer();
+	// GI::TravelToTestServer 함수 이름 변경
+	RouteGameInstance->TravelToFirstServer();
 
 }
 

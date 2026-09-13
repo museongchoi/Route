@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
+#include "Data/RouteServerInfo.h"
 #include "RouteGameInstance.generated.h"
 
 /**
@@ -17,8 +18,14 @@ class ROUTE_API URouteGameInstance : public UGameInstance
 public:
 	virtual void Init() override;
 
-	bool TravelToTestServer();
+	bool TravelToFirstServer();
 
 private:
 	bool RequestServerListFromTcpServer();
+
+	bool ParseServerListResponse(const FString& Response);
+
+public:
+	UPROPERTY(BlueprintReadOnly)
+	TArray<FRouteServerInfo> CachedServerList;
 };

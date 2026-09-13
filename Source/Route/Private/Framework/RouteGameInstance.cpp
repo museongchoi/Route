@@ -10,6 +10,10 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerController.h"
 
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+
 void URouteGameInstance::Init()
 {
 	Super::Init();
@@ -25,8 +29,22 @@ void URouteGameInstance::Init()
 	RequestServerListFromTcpServer();
 }
 
-bool URouteGameInstance::TravelToTestServer()
+bool URouteGameInstance::TravelToFirstServer()
 {
+	if (CachedServerList.Num() <= 0)
+	{
+		UE_LOG(LogTemp, Error, TEXT("CachedServerList is empty.ClientTravel canceled."));
+		return false;
+	}
+
+	const FRouteServerInfo& ServerInfo = CachedServerList[0];
+
+	if (ServerInfo.IpAddress.IsEmpty() || ServerInfo.Port <= 0)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Invalid server address. ClientTravel canceled."));
+		return false;
+	}
+	
 	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
 
 	if (!PlayerController)
@@ -35,9 +53,13 @@ bool URouteGameInstance::TravelToTestServer()
 		return false;
 	}
 
-	const FString ServerAddress = TEXT("127.0.0.1:7777");
+	const FString ServerAddress = FString::Printf(
+		TEXT("%s:%d"),
+		*ServerInfo.IpAddress,
+		ServerInfo.Port
+	);
 
-	UE_LOG(LogTemp, Error, TEXT("ClientTravel to %s"), *ServerAddress);
+	UE_LOG(LogTemp, Warning, TEXT("ClientTravel to cached server: %s"), *ServerAddress);
 
 	PlayerController->ClientTravel(ServerAddress, TRAVEL_Absolute);
 
@@ -124,6 +146,8 @@ bool URouteGameInstance::RequestServerListFromTcpServer()
 			const FString Response = FString(UTF8_TO_TCHAR(reinterpret_cast<const char*>(ReceiveBuffer)));
 
 			UE_LOG(LogTemp, Log, TEXT("Server List Response: %s"), *Response);
+
+			ParseServerListResponse(Response);
 		}
 	}
 	else
@@ -133,6 +157,77 @@ bool URouteGameInstance::RequestServerListFromTcpServer()
 
 	Socket->Close();
 	SocketSubsystem->DestroySocket(Socket);
+
+	return false;
+}
+
+bool URouteGameInstance::ParseServerListResponse(const FString& Response)
+{
+	CachedServerList.Empty();
+
+	TSharedPtr<FJsonObject> RootObject;
+
+	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Response);
+
+	if (!FJsonSerializer::Deserialize(Reader, RootObject) || !RootObject.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("ParseServerListResponse failed. Invalid Json"));
+		return false;
+	}
+
+	bool bSuccess = false;
+
+	if (!RootObject->TryGetBoolField(TEXT("success"), bSuccess) || !bSuccess)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Server list response success is false."));
+		return false;
+	}
+
+	const TArray<TSharedPtr<FJsonValue>>* ServersArray = nullptr;
+
+	if (!RootObject->TryGetArrayField(TEXT("servers"), ServersArray))
+	{
+		UE_LOG(LogTemp, Error, TEXT("Server list response has no servers array."));
+		return false;
+	}
+
+	for (int32 Index = 0; Index < ServersArray->Num(); ++Index)
+	{
+		const TSharedPtr<FJsonValue> ServerValue = (*ServersArray)[Index];
+
+		if (!ServerValue.IsValid())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("ServerValue[%d] is invalid."), Index);
+			continue;
+		}
+
+		const TSharedPtr<FJsonObject>* ServerObject = nullptr;
+
+		if (!ServerValue->TryGetObject(ServerObject) || !ServerObject || !ServerObject->IsValid())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("ServerObject[%d] is invalid."), Index);
+			continue;
+		}
+
+		FRouteServerInfo ServerInfo;
+
+		(*ServerObject)->TryGetStringField(TEXT("server_name"), ServerInfo.ServerName);
+		(*ServerObject)->TryGetStringField(TEXT("ip_address"), ServerInfo.IpAddress);
+		(*ServerObject)->TryGetNumberField(TEXT("port"), ServerInfo.Port);
+		(*ServerObject)->TryGetNumberField(TEXT("current_players"), ServerInfo.CurrentPlayers);
+		(*ServerObject)->TryGetNumberField(TEXT("max_players"), ServerInfo.MaxPlayers);
+		(*ServerObject)->TryGetStringField(TEXT("status"), ServerInfo.Status);
+
+		CachedServerList.Add(ServerInfo);
+
+		UE_LOG(LogTemp, Warning, TEXT("Parsed Server[%d] Name: %s"), Index, *ServerInfo.ServerName);
+		UE_LOG(LogTemp, Warning, TEXT("Parsed Server[%d] Address: %s:%d"), Index, *ServerInfo.IpAddress, ServerInfo.Port);
+		UE_LOG(LogTemp, Warning, TEXT("Parsed Server[%d] Players: %d / %d"), Index, ServerInfo.CurrentPlayers, ServerInfo.MaxPlayers);
+		UE_LOG(LogTemp, Warning, TEXT("Parsed Server[%d] Status: %s"), Index, *ServerInfo.Status);
+
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("Parsed Server Count: %d"), CachedServerList.Num());
 
 	return false;
 }
