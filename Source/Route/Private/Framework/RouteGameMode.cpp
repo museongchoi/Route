@@ -3,12 +3,21 @@
 
 #include "Framework/RouteGameMode.h"
 
+#include "Framework/RoutePlayerState.h"
+#include "Framework/RoutePlayerController.h"
+
 #include "Sockets.h"
 #include "SocketSubsystem.h"
 #include "Interfaces/IPv4/IPv4Address.h"
 
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
+
+ARouteGameMode::ARouteGameMode()
+{
+	PlayerStateClass = ARoutePlayerState::StaticClass();
+	PlayerControllerClass = ARoutePlayerController::StaticClass();
+}
 
 void ARouteGameMode::BeginPlay()
 {
@@ -44,6 +53,17 @@ void ARouteGameMode::PostLogin(APlayerController* NewPlayer)
 		UE_LOG(LogTemp, Error, TEXT("PostLogin NewPlayer is null"));
 		UpdateServerToTcpServer();
 		return;
+	}
+
+	ARoutePlayerState* RoutePlayerState = NewPlayer->GetPlayerState<ARoutePlayerState>();
+
+	if (RoutePlayerState)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("RoutePlayerState assigned successfully."));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("RoutePlayerState cast failed."));
 	}
 
 	APlayerState* PlayerState = NewPlayer->PlayerState;

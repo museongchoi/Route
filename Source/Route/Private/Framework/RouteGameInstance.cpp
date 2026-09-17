@@ -231,3 +231,13 @@ bool URouteGameInstance::ParseServerListResponse(const FString& Response)
 
 	return false;
 }
+
+void URouteGameInstance::SetNickname(const FString& NewNickname)
+{
+	Nickname = NewNickname;
+}
+
+FString URouteGameInstance::GetNickname() const
+{
+	return Nickname;
+}

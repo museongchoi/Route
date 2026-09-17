@@ -28,4 +28,13 @@ private:
 public:
 	UPROPERTY(BlueprintReadOnly)
 	TArray<FRouteServerInfo> CachedServerList;
+
+public:
+	void SetNickname(const FString& NewNickname);
+
+	FString GetNickname() const;
+
+private:
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	FString Nickname = TEXT("TestNickname");
 };

@@ -13,6 +13,9 @@ UCLASS()
 class ROUTE_API ARouteGameMode : public AGameModeBase
 {
 	GENERATED_BODY()
+
+public:
+	ARouteGameMode();
 	
 protected:
 	virtual void BeginPlay() override;
@@ -29,4 +32,5 @@ private:
 private:
 	int32 CurrentPlayers = 0;
 	int32 MaxPlayers = 3;
+
 };
