@@ -10,23 +10,30 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerController.h"
 
+#include "HttpModule.h"
+#include "Interfaces/IHttpRequest.h"
+#include "Interfaces/IHttpResponse.h"
+
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonWriter.h"
 
 void URouteGameInstance::Init()
 {
 	Super::Init();
 
-	UE_LOG(LogTemp, Log, TEXT("RouteGameInstance Init"));
+	//UE_LOG(LogTemp, Log, TEXT("RouteGameInstance Init"));
 
-	if (IsRunningDedicatedServer())
+	if (IsDedicatedServerInstance())
 	{
-		UE_LOG(LogTemp, Log, TEXT("Dedicated Server. Skip REQUEST_SERVER_LIST."));
+		UE_LOG(LogTemp, Log, TEXT("Dedicated Server GameInstance. Skip client requests."));
 		return;
 	}
 
-	RequestServerListFromTcpServer();
+	RequestLogin(TEXT("test01"), TEXT("1234"));
+
+	//RequestServerListFromTcpServer();
 }
 
 bool URouteGameInstance::TravelToFirstServer()
@@ -240,4 +247,74 @@ void URouteGameInstance::SetNickname(const FString& NewNickname)
 FString URouteGameInstance::GetNickname() const
 {
 	return Nickname;
+}
+
+void URouteGameInstance::RequestLogin(const FString& LoginId, const FString& Password)
+{
+	TSharedRef<FJsonObject> RequestJson = MakeShared<FJsonObject>();
+
+	RequestJson->SetStringField(TEXT("login_id"), LoginId);
+	RequestJson->SetStringField(TEXT("password"), Password);
+
+	FString RequestBody;
+
+	TSharedRef<TJsonWriter<>> Writer =
+		TJsonWriterFactory<>::Create(&RequestBody);
+
+	FJsonSerializer::Serialize(RequestJson, Writer);
+
+	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> HttpRequest = FHttpModule::Get().CreateRequest();
+
+	HttpRequest->SetURL(TEXT("http://127.0.0.1:8080/login"));
+	HttpRequest->SetVerb(TEXT("POST"));
+	HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+	HttpRequest->SetContentAsString(RequestBody);
+
+	HttpRequest->OnProcessRequestComplete().BindUObject(
+		this,
+		&URouteGameInstance::HandleLoginResponse
+	);
+
+	UE_LOG(LogTemp, Log, TEXT("Login request sent. LoginId: %s"), *LoginId);
+
+	HttpRequest->ProcessRequest();
+}
+
+void URouteGameInstance::HandleLoginResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+{
+	if (!bWasSuccessful || !Response.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("Login request failed."));
+		return;
+	}
+
+	const FString ResponseBody = Response->GetContentAsString();
+
+	UE_LOG(LogTemp, Log, TEXT("Login Response: %s"), *ResponseBody);
+
+	TSharedPtr<FJsonObject> ResponseJson;
+
+	const TSharedRef<TJsonReader<>> Reader =
+		TJsonReaderFactory<>::Create(ResponseBody);
+
+	if (!FJsonSerializer::Deserialize(Reader, ResponseJson) || !ResponseJson.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("Login response JSON parse failed."));
+		return;
+	}
+
+	bool bSuccess = false;
+
+	if (!ResponseJson->TryGetBoolField(TEXT("success"), bSuccess) || !bSuccess)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Login failed."));
+		return;
+	}
+
+	ResponseJson->TryGetNumberField(TEXT("account_id"), AccountId);
+	ResponseJson->TryGetStringField(TEXT("nickname"), Nickname);
+
+	UE_LOG(LogTemp, Warning, TEXT("Login succeeded. AccountId: %d, Nickname: %s"), AccountId, *Nickname);
+
+	RequestServerListFromTcpServer();
 }

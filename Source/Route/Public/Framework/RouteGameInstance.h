@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
 #include "Data/RouteServerInfo.h"
+#include "Interfaces/IHttpRequest.h"
+#include "Interfaces/IHttpResponse.h"
 #include "RouteGameInstance.generated.h"
 
 /**
@@ -31,10 +33,17 @@ public:
 
 public:
 	void SetNickname(const FString& NewNickname);
-
 	FString GetNickname() const;
+
+	void RequestLogin(const FString& LoginId, const FString& Password);
+
+private:
+	void HandleLoginResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
 
 private:
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	FString Nickname = TEXT("TestNickname");
+	int32 AccountId = 0;
+
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	FString Nickname;
 };
