@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "Framework/RouteGameInstance.h"
@@ -31,7 +31,7 @@ void URouteGameInstance::Init()
 		return;
 	}
 
-	RequestLogin(TEXT("test01"), TEXT("1234"));
+	//RequestLogin(TEXT("test01"), TEXT("1234"));
 
 	//RequestServerListFromTcpServer();
 }
@@ -270,6 +270,7 @@ void URouteGameInstance::RequestLogin(const FString& LoginId, const FString& Pas
 	HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
 	HttpRequest->SetContentAsString(RequestBody);
 
+	// Http 요청 완료 콜백 함수 호출
 	HttpRequest->OnProcessRequestComplete().BindUObject(
 		this,
 		&URouteGameInstance::HandleLoginResponse
@@ -305,9 +306,18 @@ void URouteGameInstance::HandleLoginResponse(FHttpRequestPtr Request, FHttpRespo
 
 	bool bSuccess = false;
 
-	if (!ResponseJson->TryGetBoolField(TEXT("success"), bSuccess) || !bSuccess)
+	if (!ResponseJson->TryGetBoolField(TEXT("success"), bSuccess))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Login response has no success field."));
+		return;
+	}
+
+	// Json 의 success : 로그인 인증 성공 여부
+	if (!bSuccess)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Login failed."));
+		OnLoginResult.Broadcast(false, TEXT("Invalid ID or password."));
+
 		return;
 	}
 
@@ -315,6 +325,8 @@ void URouteGameInstance::HandleLoginResponse(FHttpRequestPtr Request, FHttpRespo
 	ResponseJson->TryGetStringField(TEXT("nickname"), Nickname);
 
 	UE_LOG(LogTemp, Warning, TEXT("Login succeeded. AccountId: %d, Nickname: %s"), AccountId, *Nickname);
+
+	OnLoginResult.Broadcast(true, TEXT("Login succeeded"));
 
 	RequestServerListFromTcpServer();
 }

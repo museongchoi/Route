@@ -37,4 +37,9 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> Text_Status;
+
+
+private:
+	UFUNCTION()
+	void HandleLoginResult(bool bSuccess, const FString& Message);
 };

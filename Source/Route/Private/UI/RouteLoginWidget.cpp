@@ -7,11 +7,20 @@
 #include "Components/EditableTextBox.h"
 #include "Components/TextBlock.h"
 
+#include "Framework/RouteGameInstance.h"
+
 void URouteLoginWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
 	Button_Login->OnClicked.AddDynamic(this, &URouteLoginWidget::OnLoginClicked);
+
+	URouteGameInstance* RouteGameInstance = Cast<URouteGameInstance>(GetGameInstance());
+
+	if (RouteGameInstance)
+	{
+		RouteGameInstance->OnLoginResult.AddDynamic(this, &URouteLoginWidget::HandleLoginResult);
+	}
 }
 
 void URouteLoginWidget::OnLoginClicked()
@@ -20,5 +29,17 @@ void URouteLoginWidget::OnLoginClicked()
 
 	const FString Password = EditableTextBox_Password->GetText().ToString();
 
-	UE_LOG(LogTemp, Log, TEXT("Login Button Clicked. ID: %s"), *LoginID);
+	URouteGameInstance* RouteGameInstance = Cast<URouteGameInstance>(GetGameInstance());
+
+	if (!RouteGameInstance) return;
+
+	RouteGameInstance->RequestLogin(LoginID, Password);
+
+	//UE_LOG(LogTemp, Log, TEXT("Login Button Clicked. ID: %s"), *LoginID);
+}
+
+void URouteLoginWidget::HandleLoginResult(bool bSuccess, const FString& Message)
+{
+	Text_Status->SetText(FText::FromString(Message));
+
 }

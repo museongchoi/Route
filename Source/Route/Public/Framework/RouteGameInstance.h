@@ -9,6 +9,7 @@
 #include "Interfaces/IHttpResponse.h"
 #include "RouteGameInstance.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnLoginResult, bool, bSuccess, const FString&, Message);
 /**
  * 
  */
@@ -31,6 +32,7 @@ public:
 	UPROPERTY(BlueprintReadOnly)
 	TArray<FRouteServerInfo> CachedServerList;
 
+
 public:
 	void SetNickname(const FString& NewNickname);
 	FString GetNickname() const;
@@ -46,4 +48,8 @@ private:
 
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	FString Nickname;
+
+public:
+	UPROPERTY(BlueprintAssignable)
+	FOnLoginResult OnLoginResult;
 };
