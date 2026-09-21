@@ -73,6 +73,53 @@ bool URouteGameInstance::TravelToFirstServer()
 	return true;
 }
 
+void URouteGameInstance::RequestLogin(const FString& LoginId, const FString& Password)
+{
+	TSharedRef<FJsonObject> RequestJson = MakeShared<FJsonObject>();
+
+	RequestJson->SetStringField(TEXT("login_id"), LoginId);
+	RequestJson->SetStringField(TEXT("password"), Password);
+
+	FString RequestBody;
+
+	TSharedRef<TJsonWriter<>> Writer =
+		TJsonWriterFactory<>::Create(&RequestBody);
+
+	FJsonSerializer::Serialize(RequestJson, Writer);
+
+	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> HttpRequest = FHttpModule::Get().CreateRequest();
+
+	HttpRequest->SetURL(TEXT("http://127.0.0.1:8080/login"));
+	HttpRequest->SetVerb(TEXT("POST"));
+	HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+	HttpRequest->SetContentAsString(RequestBody);
+
+	// Http 요청 완료 콜백 함수 호출
+	HttpRequest->OnProcessRequestComplete().BindUObject(
+		this,
+		&URouteGameInstance::HandleLoginResponse
+	);
+
+	UE_LOG(LogTemp, Log, TEXT("Login request sent. LoginId: %s"), *LoginId);
+
+	HttpRequest->ProcessRequest();
+}
+
+void URouteGameInstance::SetNickname(const FString& NewNickname)
+{
+	Nickname = NewNickname;
+}
+
+FString URouteGameInstance::GetNickname() const
+{
+	return Nickname;
+}
+
+const TArray<FRouteServerInfo>& URouteGameInstance::GetCachedServerList() const
+{
+	return CachedServerList;
+}
+
 bool URouteGameInstance::RequestServerListFromTcpServer()
 {
 	ISocketSubsystem* SocketSubsystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
@@ -142,6 +189,8 @@ bool URouteGameInstance::RequestServerListFromTcpServer()
 
 	UE_LOG(LogTemp, Log, TEXT("REQUEST_SERVER_LIST sent. Bytes: %d"), BytesSent);
 
+	bool bRequestSucceeded = false;
+
 	if (Socket->Wait(ESocketWaitConditions::WaitForRead, FTimespan::FromSeconds(2)))
 	{
 		uint8 ReceiveBuffer[4096];
@@ -154,7 +203,12 @@ bool URouteGameInstance::RequestServerListFromTcpServer()
 
 			UE_LOG(LogTemp, Log, TEXT("Server List Response: %s"), *Response);
 
-			ParseServerListResponse(Response);
+			bRequestSucceeded = ParseServerListResponse(Response);
+
+			if (bRequestSucceeded)
+			{
+				OnServerListUpdatedDelegate.Broadcast();
+			}
 		}
 	}
 	else
@@ -165,7 +219,7 @@ bool URouteGameInstance::RequestServerListFromTcpServer()
 	Socket->Close();
 	SocketSubsystem->DestroySocket(Socket);
 
-	return false;
+	return bRequestSucceeded;
 }
 
 bool URouteGameInstance::ParseServerListResponse(const FString& Response)
@@ -236,49 +290,7 @@ bool URouteGameInstance::ParseServerListResponse(const FString& Response)
 
 	UE_LOG(LogTemp, Log, TEXT("Parsed Server Count: %d"), CachedServerList.Num());
 
-	return false;
-}
-
-void URouteGameInstance::SetNickname(const FString& NewNickname)
-{
-	Nickname = NewNickname;
-}
-
-FString URouteGameInstance::GetNickname() const
-{
-	return Nickname;
-}
-
-void URouteGameInstance::RequestLogin(const FString& LoginId, const FString& Password)
-{
-	TSharedRef<FJsonObject> RequestJson = MakeShared<FJsonObject>();
-
-	RequestJson->SetStringField(TEXT("login_id"), LoginId);
-	RequestJson->SetStringField(TEXT("password"), Password);
-
-	FString RequestBody;
-
-	TSharedRef<TJsonWriter<>> Writer =
-		TJsonWriterFactory<>::Create(&RequestBody);
-
-	FJsonSerializer::Serialize(RequestJson, Writer);
-
-	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> HttpRequest = FHttpModule::Get().CreateRequest();
-
-	HttpRequest->SetURL(TEXT("http://127.0.0.1:8080/login"));
-	HttpRequest->SetVerb(TEXT("POST"));
-	HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
-	HttpRequest->SetContentAsString(RequestBody);
-
-	// Http 요청 완료 콜백 함수 호출
-	HttpRequest->OnProcessRequestComplete().BindUObject(
-		this,
-		&URouteGameInstance::HandleLoginResponse
-	);
-
-	UE_LOG(LogTemp, Log, TEXT("Login request sent. LoginId: %s"), *LoginId);
-
-	HttpRequest->ProcessRequest();
+	return true;
 }
 
 void URouteGameInstance::HandleLoginResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
@@ -316,7 +328,7 @@ void URouteGameInstance::HandleLoginResponse(FHttpRequestPtr Request, FHttpRespo
 	if (!bSuccess)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Login failed."));
-		OnLoginResult.Broadcast(false, TEXT("Invalid ID or password."));
+		OnLoginResultDelegate.Broadcast(false, TEXT("Invalid ID or password."));
 
 		return;
 	}
@@ -326,7 +338,7 @@ void URouteGameInstance::HandleLoginResponse(FHttpRequestPtr Request, FHttpRespo
 
 	UE_LOG(LogTemp, Warning, TEXT("Login succeeded. AccountId: %d, Nickname: %s"), AccountId, *Nickname);
 
-	OnLoginResult.Broadcast(true, TEXT("Login succeeded"));
+	OnLoginResultDelegate.Broadcast(true, TEXT("Login succeeded"));
 
 	RequestServerListFromTcpServer();
 }

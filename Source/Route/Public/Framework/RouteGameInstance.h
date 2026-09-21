@@ -9,7 +9,8 @@
 #include "Interfaces/IHttpResponse.h"
 #include "RouteGameInstance.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnLoginResult, bool, bSuccess, const FString&, Message);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnLoginResultDelegate, bool, bSuccess, const FString&, Message);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnServerListUpdatedDelegate);
 /**
  * 
  */
@@ -23,24 +24,25 @@ public:
 
 	bool TravelToFirstServer();
 
-private:
-	bool RequestServerListFromTcpServer();
+	void RequestLogin(const FString& LoginId, const FString& Password);
 
-	bool ParseServerListResponse(const FString& Response);
-
-public:
-	UPROPERTY(BlueprintReadOnly)
-	TArray<FRouteServerInfo> CachedServerList;
-
-
-public:
 	void SetNickname(const FString& NewNickname);
 	FString GetNickname() const;
 
-	void RequestLogin(const FString& LoginId, const FString& Password);
+	const TArray<FRouteServerInfo>& GetCachedServerList() const;
 
 private:
+	bool RequestServerListFromTcpServer();
+	bool ParseServerListResponse(const FString& Response);
+
 	void HandleLoginResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
+
+public:
+	UPROPERTY(BlueprintAssignable)
+	FOnLoginResultDelegate OnLoginResultDelegate;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnServerListUpdatedDelegate OnServerListUpdatedDelegate;
 
 private:
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
@@ -49,7 +51,6 @@ private:
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	FString Nickname;
 
-public:
-	UPROPERTY(BlueprintAssignable)
-	FOnLoginResult OnLoginResult;
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	TArray<FRouteServerInfo> CachedServerList;
 };

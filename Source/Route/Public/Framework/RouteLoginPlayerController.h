@@ -7,6 +7,7 @@
 #include "RouteLoginPlayerController.generated.h"
 
 class URouteLoginWidget;
+class URouteServerListWidget;
 /**
  * 
  */
@@ -19,9 +20,19 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
+	UFUNCTION()
+	void HandleServerListUpdated();
+
+private:
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<URouteLoginWidget> LoginWidgetClass;
 
 	UPROPERTY()
 	TObjectPtr<URouteLoginWidget> LoginWidget;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<URouteServerListWidget> ServerListWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<URouteServerListWidget> ServerListWidget;
 };

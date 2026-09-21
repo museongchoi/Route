@@ -3,7 +3,9 @@
 
 #include "Framework/RouteLoginPlayerController.h"
 
+#include "Framework/RouteGameInstance.h"
 #include "UI/RouteLoginWidget.h"
+#include "UI/RouteServerListWidget.h"
 
 void ARouteLoginPlayerController::BeginPlay()
 {
@@ -15,15 +17,19 @@ void ARouteLoginPlayerController::BeginPlay()
 		return;
 	}
 
+	URouteGameInstance* RouteGameInstance = Cast<URouteGameInstance>(GetGameInstance());
+
+	if (RouteGameInstance)
+	{
+		RouteGameInstance->OnServerListUpdatedDelegate.AddDynamic(this, &ARouteLoginPlayerController::HandleServerListUpdated);
+	}
+
 	if (!LoginWidgetClass)
 	{
 		return;
 	}
 
-	LoginWidget = CreateWidget<URouteLoginWidget>(
-		this,
-		LoginWidgetClass
-	);
+	LoginWidget = CreateWidget<URouteLoginWidget>(this, LoginWidgetClass);
 
 	if (!LoginWidget)
 	{
@@ -35,7 +41,33 @@ void ARouteLoginPlayerController::BeginPlay()
 	bShowMouseCursor = true;
 
 	FInputModeUIOnly InputMode;
-	InputMode.SetWidgetToFocus(LoginWidget->TakeWidget());
+	SetInputMode(InputMode);
+}
 
+void ARouteLoginPlayerController::HandleServerListUpdated()
+{
+	if (LoginWidget)
+	{
+		LoginWidget->RemoveFromParent();
+		LoginWidget = nullptr;
+	}
+
+	if (!ServerListWidgetClass)
+	{
+		return;
+	}
+
+	ServerListWidget = CreateWidget<URouteServerListWidget>(this, ServerListWidgetClass);
+
+	if (!ServerListWidget)
+	{
+		return;
+	}
+
+	ServerListWidget->AddToViewport();
+
+	ServerListWidget->RefreshServerList();
+
+	FInputModeUIOnly InputMode;
 	SetInputMode(InputMode);
 }

@@ -19,7 +19,7 @@ void URouteLoginWidget::NativeConstruct()
 
 	if (RouteGameInstance)
 	{
-		RouteGameInstance->OnLoginResult.AddDynamic(this, &URouteLoginWidget::HandleLoginResult);
+		RouteGameInstance->OnLoginResultDelegate.AddDynamic(this, &URouteLoginWidget::HandleLoginResult);
 	}
 }
 
@@ -31,7 +31,10 @@ void URouteLoginWidget::OnLoginClicked()
 
 	URouteGameInstance* RouteGameInstance = Cast<URouteGameInstance>(GetGameInstance());
 
-	if (!RouteGameInstance) return;
+	if (!RouteGameInstance)
+	{
+		return;
+	}
 
 	RouteGameInstance->RequestLogin(LoginID, Password);
 
