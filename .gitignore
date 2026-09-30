@@ -13,8 +13,12 @@ Saved/
 # Third-party local libraries
 ThirdParty/MySQLConnector/
 
+# Local Unreal EOS credentials
+Config/UserEngine.ini
+
 # Local secret config
 Route_BackendServer/Config/DBSecrets.ini
+Route_BackendServer/Config/EOSSecrets.ini
 Route_TCPServer/Config/DBSecrets.ini
 
 # Visual Studio / Rider / IDE

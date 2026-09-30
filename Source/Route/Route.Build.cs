@@ -9,7 +9,7 @@ public class Route : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", 
-			"Sockets", "Networking" , "Json" , "JsonUtilities" , "HTTP" , "UMG"});
+			"Sockets", "Networking" , "Json" , "JsonUtilities" , "HTTP" , "UMG", "OnlineSubsystem" , "OnlineSubsystemUtils" , "VoiceChat" , "EOSVoiceChat" });
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 
