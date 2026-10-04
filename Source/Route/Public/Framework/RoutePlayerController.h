@@ -19,18 +19,27 @@ protected:
 
 	virtual void SetupInputComponent() override;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
+// Input
+private:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputMappingContext> PlayerMappingContext;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> PushToTalkAction;
 
+//Nickname
 private:
-	void StartVoiceTransmit();
-	void StopVoiceTransmit();
-
 	void SendNicknameToServer();
 
 	UFUNCTION(Server, Reliable)
 	void ServerSetNickname(const FString& NewNickname);
+
+// Voice
+private:
+	void StartVoiceTransmit();
+	void StopVoiceTransmit();
+
+	UFUNCTION(Server, Reliable)
+	void ServerSetSpeaking(bool bNewIsSpeaking);
+
 };

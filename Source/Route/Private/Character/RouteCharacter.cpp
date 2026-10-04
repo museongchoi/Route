@@ -6,6 +6,7 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Components/WidgetComponent.h"
 
 #include "EnhancedInputComponent.h"
 
@@ -30,6 +31,17 @@ ARouteCharacter::ARouteCharacter()
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
+
+
+	VoiceIndicatorWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("VoiceIndicatorWidget"));
+	VoiceIndicatorWidget->SetupAttachment(RootComponent);
+
+	VoiceIndicatorWidget->SetRelativeLocation(FVector(0.0f, 0.0f, 120.0f));
+
+	VoiceIndicatorWidget->SetWidgetSpace(EWidgetSpace::Screen);
+	VoiceIndicatorWidget->SetDrawSize(FVector2D(64.0f, 64.0f));
+
+	VoiceIndicatorWidget->SetVisibility(false);
 }
 
 void ARouteCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -73,5 +85,16 @@ void ARouteCharacter::Move(const FInputActionValue& Value)
 	AddMovementInput(RightDirection, MovementVector.X);
 }
 
+void ARouteCharacter::UpdateVoiceIndicator(bool bIsSpeaking)
+{
+	if (!VoiceIndicatorWidget)
+	{
+		UE_LOG(LogTemp, Error, TEXT("VoiceIndicatorWidget is null"));
+		return;
+	}
 
+	VoiceIndicatorWidget->SetVisibility(bIsSpeaking);
+
+	UE_LOG(LogTemp, Warning, TEXT("Voice Indicator Updated. IsSpeaking: %s"), bIsSpeaking ? TEXT("true") : TEXT("false"));
+}
 

@@ -17,11 +17,9 @@ class ROUTE_API ARoutePlayerState : public APlayerState
 public:
 	ARoutePlayerState();
 
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-
+// Nickname
 public:
 	void SetNickname(const FString& NewNickname);
-	
 	FString GetNickname() const;
 
 private:
@@ -31,4 +29,22 @@ private:
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_Nickname, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	FString Nickname;
+
+// Voice
+public:
+	bool IsSpeaking() const { return bIsSpeaking; }
+	void SetIsSpeaking(bool bNewIsSpeaking);
+
+protected:
+	UFUNCTION()
+	void OnRep_IsSpeaking();
+
+protected:
+	UPROPERTY(ReplicatedUsing = OnRep_IsSpeaking, BlueprintReadOnly, Category = "Voice")
+	bool bIsSpeaking = false;
+
+// Replication
+protected:
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 };

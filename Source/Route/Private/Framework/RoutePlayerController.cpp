@@ -105,34 +105,6 @@ void ARoutePlayerController::SetupInputComponent()
 	}
 }
 
-void ARoutePlayerController::StartVoiceTransmit()
-{
-	UE_LOG(LogTemp, Warning, TEXT("PTT Pressed - Start Voice Transmit"));
-
-	URouteGameInstance* RouteGameInstance = Cast<URouteGameInstance>(GetGameInstance());
-
-	if (!RouteGameInstance)
-	{
-		return;
-	}
-
-	RouteGameInstance->StartVoiceTransmit();
-}
-
-void ARoutePlayerController::StopVoiceTransmit()
-{
-	UE_LOG(LogTemp, Warning, TEXT("PTT Released - Stop Voice Transmit"));
-
-	URouteGameInstance* RouteGameInstance = Cast<URouteGameInstance>(GetGameInstance());
-
-	if (!RouteGameInstance)
-	{
-		return;
-	}
-
-	RouteGameInstance->StopVoiceTransmit();
-}
-
 void ARoutePlayerController::SendNicknameToServer()
 {
 	URouteGameInstance* RouteGameInstance = Cast<URouteGameInstance>(GetGameInstance());
@@ -169,4 +141,63 @@ void ARoutePlayerController::ServerSetNickname_Implementation(const FString& New
 	}
 
 	RoutePlayerState->SetNickname(NewNickname);
+}
+
+void ARoutePlayerController::StartVoiceTransmit()
+{
+	UE_LOG(LogTemp, Warning, TEXT("PTT Pressed - Start Voice Transmit"));
+
+	URouteGameInstance* RouteGameInstance = Cast<URouteGameInstance>(GetGameInstance());
+
+	if (!RouteGameInstance)
+	{
+		return;
+	}
+
+	RouteGameInstance->StartVoiceTransmit();
+
+	UE_LOG(LogTemp, Warning, TEXT("Call ServerSetSpeaking(true)"));
+	ServerSetSpeaking(true);
+}
+
+void ARoutePlayerController::StopVoiceTransmit()
+{
+	UE_LOG(LogTemp, Warning, TEXT("PTT Released - Stop Voice Transmit"));
+
+	URouteGameInstance* RouteGameInstance = Cast<URouteGameInstance>(GetGameInstance());
+
+	if (!RouteGameInstance)
+	{
+		return;
+	}
+
+	RouteGameInstance->StopVoiceTransmit();
+
+	UE_LOG(LogTemp, Warning, TEXT("Call ServerSetSpeaking(false)"));
+	ServerSetSpeaking(false);
+}
+
+void ARoutePlayerController::ServerSetSpeaking_Implementation(bool bNewIsSpeaking)
+{
+	UE_LOG(
+		LogTemp,
+		Warning,
+		TEXT("ServerSetSpeaking called: %s"),
+		bNewIsSpeaking ? TEXT("true") : TEXT("false")
+	);
+
+	ARoutePlayerState* RoutePlayerState = GetPlayerState<ARoutePlayerState>();
+
+	if (!RoutePlayerState)
+	{
+		UE_LOG(
+			LogTemp,
+			Error,
+			TEXT("RoutePlayerState is null. SetIsSpeaking failed.")
+		);
+
+		return;
+	}
+
+	RoutePlayerState->SetIsSpeaking(bNewIsSpeaking);
 }

@@ -10,6 +10,7 @@
 class USpringArmComponent;
 class UCameraComponent;
 class UInputAction;
+class UWidgetComponent;
 
 UCLASS()
 class ROUTE_API ARouteCharacter : public ACharacter
@@ -20,20 +21,31 @@ public:
 	// Sets default values for this character's properties
 	ARouteCharacter();
 
+// Input
 protected:
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
+private:
 	void Move(const FInputActionValue& Value);
 
-protected:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
-	TObjectPtr<USpringArmComponent> CameraBoom;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
-	TObjectPtr<UCameraComponent> FollowCamera;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
+private:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> MoveAction;
 
+// Camera
+private:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USpringArmComponent> CameraBoom;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UCameraComponent> FollowCamera;
+
+// Voice UI
+public:
+	void UpdateVoiceIndicator(bool bIsSpeaking);
+
+private:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Voice", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UWidgetComponent> VoiceIndicatorWidget;
 
 };
