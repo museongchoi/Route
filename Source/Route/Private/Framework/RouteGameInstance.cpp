@@ -20,6 +20,9 @@
 #include "VoiceChat.h"
 #include "EOSVoiceChatTypes.h"
 
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
+
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
@@ -376,10 +379,16 @@ void URouteGameInstance::RequestEOSLogin()
 		FOnLoginCompleteDelegate::CreateUObject(this, &URouteGameInstance::HandleEOSLoginComplete)
 	);
 
+	FString DevAuthCredential = TEXT("Player1");
+
+	FParse::Value(FCommandLine::Get(), TEXT("DevAuthCredential="), DevAuthCredential);
+
 	FOnlineAccountCredentials Credentials;
 	Credentials.Type = TEXT("Developer");
 	Credentials.Id = TEXT("localhost:6666");
-	Credentials.Token = TEXT("Player1");
+	Credentials.Token = DevAuthCredential;
+
+	UE_LOG(LogTemp, Warning, TEXT("EOS Developer Login Credential: %s"), *DevAuthCredential);
 
 	Identity->Login(0, Credentials);
 }

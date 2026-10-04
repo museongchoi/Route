@@ -6,9 +6,9 @@
 #include "GameFramework/PlayerController.h"
 #include "RoutePlayerController.generated.h"
 
-/**
- * 
- */
+class UInputMappingContext;
+class UInputAction;
+
 UCLASS()
 class ROUTE_API ARoutePlayerController : public APlayerController
 {
@@ -17,7 +17,18 @@ class ROUTE_API ARoutePlayerController : public APlayerController
 protected:
 	virtual void BeginPlay() override;
 
+	virtual void SetupInputComponent() override;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputMappingContext> PlayerMappingContext;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> PushToTalkAction;
+
 private:
+	void StartVoiceTransmit();
+	void StopVoiceTransmit();
+
 	void SendNicknameToServer();
 
 	UFUNCTION(Server, Reliable)

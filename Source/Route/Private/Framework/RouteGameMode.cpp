@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+Ôªø// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "Framework/RouteGameMode.h"
@@ -15,8 +15,8 @@
 
 ARouteGameMode::ARouteGameMode()
 {
-	PlayerStateClass = ARoutePlayerState::StaticClass();
-	PlayerControllerClass = ARoutePlayerController::StaticClass();
+	//PlayerStateClass = ARoutePlayerState::StaticClass();
+	//PlayerControllerClass = ARoutePlayerController::StaticClass();
 }
 
 void ARouteGameMode::BeginPlay()
@@ -123,7 +123,7 @@ bool ARouteGameMode::RegisterServerToTcpServer()
 		return false;
 	}
 
-	// ¡÷º“ ∫Ø»Ø
+	// Ï£ºÏÜå Î≥ÄÌôò
 	FIPv4Address TcpServerIp;
 	if (!FIPv4Address::Parse(TEXT("127.0.0.1"), TcpServerIp))
 	{
@@ -131,13 +131,13 @@ bool ARouteGameMode::RegisterServerToTcpServer()
 		return false;
 	}
 
-	// ¡¢º” ¡÷º“ ∞¥√º ª˝º∫
+	// Ï†ëÏÜç Ï£ºÏÜå Í∞ùÏ≤¥ ÏÉùÏÑ±
 	TSharedRef<FInternetAddr> TcpServerAddress = SocketSubsystem->CreateInternetAddr();
 	
 	TcpServerAddress->SetIp(TcpServerIp.Value);
 	TcpServerAddress->SetPort(9000);
 
-	// º“ƒœ ª˝º∫
+	// ÏÜåÏºì ÏÉùÏÑ±
 	FSocket* Socket = SocketSubsystem->CreateSocket(
 		NAME_Stream,
 		TEXT("RouteRegisterSocket"),
@@ -161,7 +161,7 @@ bool ARouteGameMode::RegisterServerToTcpServer()
 		return false;
 	}
 
-	// ¿¸º€ πÆ¿⁄ø≠ ª˝º∫
+	// Ï†ÑÏÜ° Î¨∏ÏûêÏó¥ ÏÉùÏÑ±
 	const FString RegisterMessage =
 		TEXT("{\"type\":\"REGISTER_SERVER\",")
 		TEXT("\"server_name\":\"RouteServer01\",")
@@ -171,10 +171,10 @@ bool ARouteGameMode::RegisterServerToTcpServer()
 		TEXT("\"max_players\":3,")
 		TEXT("\"status\":\"OPEN\"}\n");
 
-	// πÆ¿⁄ø≠¿ª πŸ¿Ã∆Æ πËø≠∑Œ ∫Ø»Ø
+	// Î¨∏ÏûêÏó¥ÏùÑ Î∞îÏù¥Ìä∏ Î∞∞Ïó¥Î°ú Î≥ÄÌôò
 	FTCHARToUTF8 ConvertedMessage(*RegisterMessage);
 
-	// Send ∏ﬁΩ√¡ˆ ¿¸º€
+	// Send Î©îÏãúÏßÄ Ï†ÑÏÜ°
 	int32 BytesSent = 0;
 
 	const bool bSent = Socket->Send(
@@ -183,7 +183,7 @@ bool ARouteGameMode::RegisterServerToTcpServer()
 		BytesSent
 	);
 
-	// øπø‹) Send Ω«∆– √≥∏Æ
+	// ÏòàÏô∏) Send Ïã§Ìå® Ï≤òÎ¶¨
 	if (!bSent)
 	{
 		UE_LOG(LogTemp, Error, TEXT("Send REGISTER_SERVER failed."));
@@ -194,10 +194,10 @@ bool ARouteGameMode::RegisterServerToTcpServer()
 		return false;
 	}
 
-	// øπø‹) Send º∫∞¯ √≥∏Æ
+	// ÏòàÏô∏) Send ÏÑ±Í≥µ Ï≤òÎ¶¨
 	UE_LOG(LogTemp, Log, TEXT("REGISTER_SERVER sent. Bytes: %d"), BytesSent);
 	
-	// TCPServer ¿¿¥‰ ¥Î±‚
+	// TCPServer ÏùëÎãµ ÎåÄÍ∏∞
 	if (Socket->Wait(ESocketWaitConditions::WaitForRead, FTimespan::FromSeconds(2)))
 	{
 		uint8 ReceiveBuffer[1024]{};
