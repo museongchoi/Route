@@ -4,30 +4,28 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "RouteLoginWidget.generated.h"
+#include "RouteRegisterWidget.generated.h"
 
 class UEditableTextBox;
 class UButton;
 class UTextBlock;
 
-/**
- * 
- */
 UCLASS()
-class ROUTE_API URouteLoginWidget : public UUserWidget
+class ROUTE_API URouteRegisterWidget : public UUserWidget
 {
 	GENERATED_BODY()
-	
+
 protected:
 	virtual void NativeConstruct() override;
 
+// Register
 private:
 	UFUNCTION()
-	void OnLoginClicked();
-
-	//Register 회원가입
-	UFUNCTION()
 	void OnRegisterClicked();
+
+	// 결과 처리 함수
+	UFUNCTION()
+	void HandleRegisterResult(bool bSuccess, const FString& Message);
 
 private:
 	UPROPERTY(meta = (BindWidget))
@@ -37,7 +35,7 @@ private:
 	TObjectPtr<UEditableTextBox> EditableTextBox_Password;
 
 	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UButton> Button_Login;
+	TObjectPtr<UEditableTextBox> EditableTextBox_Nickname;
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> Button_Register;
@@ -45,8 +43,13 @@ private:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> Text_Status;
 
+// Back
 private:
 	UFUNCTION()
-	void HandleLoginResult(bool bSuccess, const FString& Message);
+	void OnBackClicked();
 
+private:
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UButton> Button_Back;
+	
 };

@@ -139,6 +139,75 @@ bool SaveOrUpdateServerInstance(const string& ServerName, const string& IpAddres
 	}
 }
 
+bool UpdateServerHeartbeat(const string& IpAddress, int port)
+{
+	try
+	{
+		unique_ptr<sql::Connection> Conn = CreateMySqlConnection();
+
+		if (!Conn)
+		{
+			return false;
+		}
+
+		unique_ptr<sql::PreparedStatement> Stmt(
+			Conn->prepareStatement(
+				"UPDATE server_instances "
+				"SET last_heartbeat = NOW() "
+				"WHERE ip_address = ? AND port = ?"
+			)
+		);
+
+		Stmt->setString(1, IpAddress);
+		Stmt->setInt(2, port);
+
+		const int UpdateRows = Stmt->executeUpdate();
+
+		return UpdateRows > 0;
+	}
+	catch (const sql::SQLException& Err)
+	{
+		std::cout << "MySQL : UpdateServerHeartbeat failed. " << Err.what() << "\n";
+		return false;
+	}
+}
+
+bool UpdateOfflineServers()
+{
+	try
+	{
+		unique_ptr<sql::Connection> Conn = CreateMySqlConnection();
+
+		if (!Conn)
+		{
+			return false;
+		}
+
+		unique_ptr<sql::PreparedStatement> Stmt(
+			Conn->prepareStatement(
+				"UPDATE server_instances "
+				"SET status = 'OFFLINE' "
+				"WHERE status != 'OFFLINE' "
+				"AND last_heartbeat < NOW() - INTERVAL 15 SECOND"
+			)
+		);
+
+		const int UpdatedRows = Stmt->executeUpdate();
+
+		if (UpdatedRows > 0)
+		{
+			std::cout << "Offline Servers Updated: " << UpdatedRows << "\n";
+		}
+
+		return true;
+	}
+	catch (const sql::SQLException& Err)
+	{
+		std::cout << "MySQL : UpdateOfflineServers failed. " << Err.what() << "\n";
+		return false;
+	}
+}
+
 json GetServerListJson()
 {
 	json ResponseJson;
@@ -423,6 +492,8 @@ int main()
 					{
 						std::cout << "Request Server List" << "\n";
 
+						UpdateOfflineServers();
+
 						json ResponseJson = GetServerListJson();
 
 						ResponseMessage = ResponseJson.dump() + "\n";
@@ -449,10 +520,10 @@ int main()
 							const int MaxPlayers = RequestJson["max_players"].get<int>();
 							const string Status = RequestJson["status"].get<string>();
 
-							cout << "IpAddress: " << IpAddress << "\n";
-							cout << "Port: " << Port << "\n";
-							cout << "Players: " << CurrentPlayers << " / " << MaxPlayers << "\n";
-							cout << "Status: " << Status << "\n";
+							std::cout << "IpAddress: " << IpAddress << "\n";
+							std::cout << "Port: " << Port << "\n";
+							std::cout << "Players: " << CurrentPlayers << " / " << MaxPlayers << "\n";
+							std::cout << "Status: " << Status << "\n";
 
 							const bool bUpdated = UpdateServerInstance(IpAddress, Port, CurrentPlayers, MaxPlayers, Status);
 
@@ -467,6 +538,44 @@ int main()
 							{
 								ResponseJson["success"] = false;
 								ResponseJson["message"] = "database error";
+							}
+
+							ResponseMessage = ResponseJson.dump() + "\n";
+						}
+					}
+					else if (MessageType == "HEARTBEAT")
+					{
+						std::cout << "Heartbeat Request" << "\n";
+
+						if (!RequestJson.contains("ip_address") || !RequestJson.contains("port"))
+						{
+							json ResponseJson;
+							ResponseJson["success"] = false;
+							ResponseJson["message"] = "invalid request";
+
+							ResponseMessage = ResponseJson.dump() + "\n";
+						}
+						else
+						{
+							const string IpAddress = RequestJson["ip_address"].get<string>();
+							const int Port = RequestJson["port"].get<int>();
+
+							std::cout << "IpAddress: " << IpAddress << "\n";
+							std::cout << "Port: " << Port << "\n";
+
+							const bool bUpdated = UpdateServerHeartbeat(IpAddress, Port);
+
+							json ResponseJson;
+
+							if (bUpdated)
+							{
+								ResponseJson["success"] = true;
+								ResponseJson["message"] = "HEARTBEAT_OK";
+							}
+							else
+							{
+								ResponseJson["success"] = false;
+								ResponseJson["message"] = "server not found";
 							}
 
 							ResponseMessage = ResponseJson.dump() + "\n";

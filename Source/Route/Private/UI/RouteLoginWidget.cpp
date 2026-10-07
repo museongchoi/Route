@@ -8,12 +8,14 @@
 #include "Components/TextBlock.h"
 
 #include "Framework/RouteGameInstance.h"
+#include "Framework/RouteLoginPlayerController.h"
 
 void URouteLoginWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
 	Button_Login->OnClicked.AddDynamic(this, &URouteLoginWidget::OnLoginClicked);
+	Button_Register->OnClicked.AddDynamic(this, &URouteLoginWidget::OnRegisterClicked);
 
 	URouteGameInstance* RouteGameInstance = Cast<URouteGameInstance>(GetGameInstance());
 
@@ -41,8 +43,21 @@ void URouteLoginWidget::OnLoginClicked()
 	//UE_LOG(LogTemp, Log, TEXT("Login Button Clicked. ID: %s"), *LoginID);
 }
 
+void URouteLoginWidget::OnRegisterClicked()
+{
+	ARouteLoginPlayerController* LoginPlayerController = Cast<ARouteLoginPlayerController>(GetOwningPlayer());
+
+	if (!LoginPlayerController)
+	{
+		return;
+	}
+
+	LoginPlayerController->ShowRegisterWidget();
+}
+
 void URouteLoginWidget::HandleLoginResult(bool bSuccess, const FString& Message)
 {
 	Text_Status->SetText(FText::FromString(Message));
 
 }
+

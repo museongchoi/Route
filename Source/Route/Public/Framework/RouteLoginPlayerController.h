@@ -8,6 +8,7 @@
 
 class URouteLoginWidget;
 class URouteServerListWidget;
+class URouteRegisterWidget;
 /**
  * 
  */
@@ -35,4 +36,16 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<URouteServerListWidget> ServerListWidget;
+
+// Register UI
+public:
+	void ShowRegisterWidget();
+	void ShowLoginWidget();
+
+private:
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<URouteRegisterWidget> RegisterWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<URouteRegisterWidget> RegisterWidget;
 };

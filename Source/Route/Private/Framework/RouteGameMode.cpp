@@ -10,6 +10,11 @@
 #include "SocketSubsystem.h"
 #include "Interfaces/IPv4/IPv4Address.h"
 
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
+
+#include "TimerManager.h"
+
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
 
@@ -25,22 +30,65 @@ void ARouteGameMode::BeginPlay()
 
 	UE_LOG(LogTemp, Warning, TEXT("RouteGameMode BeginPlay"));
 
-	//if (!IsRunningDedicatedServer())
-	//{
-	//	return;
-	//}
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Not Dedicated Server. Skip REGISTER_SERVER."));
 		return;
 	}
 
-	RegisterServerToTcpServer();
+	FParse::Value(FCommandLine::Get(), TEXT("ServerName="), ServerName);
+	FParse::Value(FCommandLine::Get(), TEXT("port="), ServerPort);
+	FParse::Value(FCommandLine::Get(), TEXT("MaxPlayers="), MaxPlayers);
+
+	UE_LOG(LogTemp, Warning, TEXT("Dedicated Server Config | Name: %s | Port: %d | MaxPlayers: %d"), *ServerName, ServerPort, MaxPlayers);
+
+	if (!RegisterServerToTcpServer())
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to register Dedicated Server."));
+		return;
+	}
+
+	GetWorldTimerManager().SetTimer(
+		HeartbeatTimerHandle,
+		this,
+		&ARouteGameMode::SendHeartbeatToTcpServer,
+		5.0f,
+		true
+	);
+
+	UE_LOG(LogTemp, Warning, TEXT("Heartbeat timer started. Interval: 5 seconds."));
+}
+
+void ARouteGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
+{
+	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
+	
+	if (!ErrorMessage.IsEmpty())
+	{
+		return;
+	}
+
+	if (CurrentPlayers >= MaxPlayers)
+	{
+		ErrorMessage = TEXT("Server is full.");
+		UE_LOG(LogTemp, Warning, TEXT("PreLogin rejected. Server full: %d / %d"), CurrentPlayers, MaxPlayers);
+		
+		return;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("PreLogin accepted. CurrentPlayers: %d / %d"), CurrentPlayers, MaxPlayers);
 }
 
 void ARouteGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
+
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Not Dedicated Server. Skip PostLogin server update."));
+		return;
+
+	}
 
 	UE_LOG(LogTemp, Warning, TEXT("RouteGameMode PostLogin"));
 
@@ -82,6 +130,11 @@ void ARouteGameMode::PostLogin(APlayerController* NewPlayer)
 
 void ARouteGameMode::Logout(AController* ExitingPlayer)
 {
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		Super::Logout(ExitingPlayer);
+		return;
+	}
 
 	UE_LOG(LogTemp, Warning, TEXT("RouteGameMode Logout"));
 
@@ -162,14 +215,20 @@ bool ARouteGameMode::RegisterServerToTcpServer()
 	}
 
 	// 전송 문자열 생성
-	const FString RegisterMessage =
+	const FString RegisterMessage = FString::Printf(
 		TEXT("{\"type\":\"REGISTER_SERVER\",")
-		TEXT("\"server_name\":\"RouteServer01\",")
-		TEXT("\"ip_address\":\"127.0.0.1\",")
-		TEXT("\"port\":7777,")
-		TEXT("\"current_players\":0,")
-		TEXT("\"max_players\":3,")
-		TEXT("\"status\":\"OPEN\"}\n");
+		TEXT("\"server_name\":\"%s\",")
+		TEXT("\"ip_address\":\"%s\",")
+		TEXT("\"port\":%d,")
+		TEXT("\"current_players\":%d,")
+		TEXT("\"max_players\":%d,")
+		TEXT("\"status\":\"OPEN\"}\n"),
+		*ServerName,
+		*ServerIpAddress,
+		ServerPort,
+		CurrentPlayers,
+		MaxPlayers
+	);
 
 	// 문자열을 바이트 배열로 변환
 	FTCHARToUTF8 ConvertedMessage(*RegisterMessage);
@@ -277,11 +336,13 @@ bool ARouteGameMode::UpdateServerToTcpServer()
 
 	const FString UpdateMessage = FString::Printf(
 		TEXT("{\"type\":\"UPDATE_SERVER\",")
-		TEXT("\"ip_address\":\"127.0.0.1\",")
-		TEXT("\"port\":7777,")
+		TEXT("\"ip_address\":\"%s\",")
+		TEXT("\"port\":%d,")
 		TEXT("\"current_players\":%d,")
 		TEXT("\"max_players\":%d,")
 		TEXT("\"status\":\"%s\"}\n"),
+		*ServerIpAddress,
+		ServerPort,
 		CurrentPlayers,
 		MaxPlayers,
 		*ServerStatus
@@ -333,4 +394,102 @@ bool ARouteGameMode::UpdateServerToTcpServer()
 	SocketSubsystem->DestroySocket(Socket);
 
 	return true;
+}
+
+void ARouteGameMode::SendHeartbeatToTcpServer()
+{
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		return;
+	}
+
+	ISocketSubsystem* SocketSubsystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
+
+	if (!SocketSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Heartbeat failed. SocketSubsystem is null."));
+
+		return;
+	}
+
+	FIPv4Address TcpServerIp;
+
+	if (!FIPv4Address::Parse(TEXT("127.0.0.1"), TcpServerIp))
+	{
+		UE_LOG(LogTemp, Error, TEXT("Heartbeat failed. Invalid TCPServer IP."));
+
+		return;
+	}
+
+	TSharedRef<FInternetAddr> TcpServerAddress = SocketSubsystem->CreateInternetAddr();
+
+	TcpServerAddress->SetIp(TcpServerIp.Value);
+	TcpServerAddress->SetPort(9000);
+
+	FSocket* Socket = SocketSubsystem->CreateSocket(NAME_Stream, TEXT("RouteHeartbeatSocket"), false);
+
+	if (!Socket)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Heartbeat failed. CreateSocket failed."));
+
+		return;
+	}
+
+	if (!Socket->Connect(*TcpServerAddress))
+	{
+		UE_LOG(LogTemp, Error, TEXT("Heartbeat failed. Connect to TCPServer failed."));
+
+		Socket->Close();
+		SocketSubsystem->DestroySocket(Socket);
+
+		return;
+	}
+
+	const FString HeartbeatMessage = FString::Printf(
+		TEXT("{\"type\":\"HEARTBEAT\",")
+		TEXT("\"ip_address\":\"%s\",")
+		TEXT("\"port\":%d}\n"),
+		*ServerIpAddress,
+		ServerPort
+	);
+
+	FTCHARToUTF8 ConvertedMessage(*HeartbeatMessage);
+
+	int32 BytesSent = 0;
+
+	const bool bSent = Socket->Send(reinterpret_cast<const uint8*>(ConvertedMessage.Get()), ConvertedMessage.Length(), BytesSent);
+
+	if (!bSent)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Send HEARTBEAT failed."));
+
+		Socket->Close();
+		SocketSubsystem->DestroySocket(Socket);
+
+		return;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("HEARTBEAT sent. Server: %s:%d, Bytes: %d"), *ServerIpAddress, ServerPort, BytesSent);
+
+	if (Socket->Wait(ESocketWaitConditions::WaitForRead, FTimespan::FromSeconds(2)))
+	{
+		uint8 ReceiveBuffer[1024]{};
+		int32 BytesRead = 0;
+
+		if (Socket->Recv(ReceiveBuffer, sizeof(ReceiveBuffer) - 1, BytesRead))
+		{
+			ReceiveBuffer[BytesRead] = '\0';
+
+			const FString Response = FString(UTF8_TO_TCHAR(reinterpret_cast<const char*>(ReceiveBuffer)));
+
+			UE_LOG(LogTemp, Warning, TEXT("TCPServer Heartbeat Response: %s"), *Response);
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No heartbeat response from TCPServer."));
+	}
+
+	Socket->Close();
+	SocketSubsystem->DestroySocket(Socket);
 }

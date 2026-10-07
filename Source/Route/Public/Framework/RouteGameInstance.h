@@ -11,6 +11,7 @@
 #include "RouteGameInstance.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnLoginResultDelegate, bool, bSuccess, const FString&, Message);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnRegisterResultDelegate, bool, bSuccess, const FString&, Message);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnServerListUpdatedDelegate);
 
 class IVoiceChat;
@@ -27,7 +28,11 @@ public:
 
 	bool TravelToFirstServer();
 
+// Account
+public:
 	void RequestLogin(const FString& LoginId, const FString& Password);
+
+	void RequestRegister(const FString& LoginId, const FString& Password, const FString& NewNickname);
 
 	void SetNickname(const FString& NewNickname);
 	FString GetNickname() const;
@@ -39,6 +44,7 @@ private:
 	bool ParseServerListResponse(const FString& Response);
 
 	void HandleLoginResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
+	void HandleRegisterResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
 
 public:
 	void RequestEOSLogin();
@@ -58,6 +64,9 @@ private:
 public:
 	UPROPERTY(BlueprintAssignable)
 	FOnLoginResultDelegate OnLoginResultDelegate;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnRegisterResultDelegate OnRegisterResultDelegate;
 
 	UPROPERTY(BlueprintAssignable)
 	FOnServerListUpdatedDelegate OnServerListUpdatedDelegate;
@@ -82,6 +91,8 @@ private:
 
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	FString SessionToken;
+
+	bool bEnableEOSVoice = false;
 
 public:
 	//const FString& GetSessionToken() const { return SessionToken; }

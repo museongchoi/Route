@@ -32,19 +32,25 @@ void URouteGameInstance::Init()
 {
 	Super::Init();
 
-	//UE_LOG(LogTemp, Log, TEXT("RouteGameInstance Init"));
-
 	if (IsDedicatedServerInstance())
 	{
 		UE_LOG(LogTemp, Log, TEXT("Dedicated Server GameInstance. Skip client requests."));
 		return;
 	}
 
-	//RequestLogin(TEXT("test01"), TEXT("1234"));
+	bEnableEOSVoice = FParse::Param(FCommandLine::Get(), TEXT("EnableEOSVoice"));
 
 	//RequestServerListFromTcpServer();
 
-	RequestEOSLogin();
+	if (bEnableEOSVoice)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("EOS Voice enabled."));
+		RequestEOSLogin();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("EOS Voice disabled."));
+	}
 }
 
 bool URouteGameInstance::TravelToFirstServer()
@@ -112,6 +118,34 @@ void URouteGameInstance::RequestLogin(const FString& LoginId, const FString& Pas
 	);
 
 	UE_LOG(LogTemp, Log, TEXT("Login request sent. LoginId: %s"), *LoginId);
+
+	HttpRequest->ProcessRequest();
+}
+
+void URouteGameInstance::RequestRegister(const FString& LoginId, const FString& Password, const FString& NewNickname)
+{
+	TSharedRef<FJsonObject> RequestJson = MakeShared<FJsonObject>();
+
+	RequestJson->SetStringField(TEXT("login_id"), LoginId);
+	RequestJson->SetStringField(TEXT("password"), Password);
+	RequestJson->SetStringField(TEXT("nickname"), NewNickname);
+
+	FString RequestBody;
+
+	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBody);
+
+	FJsonSerializer::Serialize(RequestJson, Writer);
+
+	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> HttpRequest = FHttpModule::Get().CreateRequest();
+	
+	HttpRequest->SetURL(TEXT("http://127.0.0.1:8080/register"));
+	HttpRequest->SetVerb(TEXT("POST"));
+	HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+	HttpRequest->SetContentAsString(RequestBody);
+
+	HttpRequest->OnProcessRequestComplete().BindUObject(this, &URouteGameInstance::HandleRegisterResponse);
+
+	UE_LOG(LogTemp, Warning, TEXT("Register request sent. LoginId: %s"), *LoginId);
 
 	HttpRequest->ProcessRequest();
 }
@@ -357,6 +391,48 @@ void URouteGameInstance::HandleLoginResponse(FHttpRequestPtr Request, FHttpRespo
 	RequestServerListFromTcpServer();
 }
 
+void URouteGameInstance::HandleRegisterResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+{
+	if (!bWasSuccessful || !Response.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("Register request failed."));
+
+		OnRegisterResultDelegate.Broadcast(false, TEXT("Failed to connect to server."));
+
+		return;
+	}
+
+	const FString ResponseBody = Response->GetContentAsString();
+
+	UE_LOG(LogTemp, Log, TEXT("Register Response: %s"), *ResponseBody);
+
+	TSharedPtr<FJsonObject> ResponseJson;
+
+	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseBody);
+	if (!FJsonSerializer::Deserialize(Reader, ResponseJson) || !ResponseJson.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("Register response JSON parse failed."));
+
+		OnRegisterResultDelegate.Broadcast(false, TEXT("Invalid server response."));
+
+		return;
+	}
+
+	bool bSuccess = false;
+	FString Message;
+
+	if (!ResponseJson->TryGetBoolField(TEXT("success"), bSuccess))
+	{
+		OnRegisterResultDelegate.Broadcast(false, TEXT("Invalid server response."));
+
+		return;
+	}
+
+	ResponseJson->TryGetStringField(TEXT("message"), Message);
+
+	OnRegisterResultDelegate.Broadcast(bSuccess, Message);
+}
+
 void URouteGameInstance::RequestEOSLogin()
 {
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get(TEXT("EOS"));
@@ -451,6 +527,11 @@ void URouteGameInstance::OnEOSLoginComplete(int32 LocalUserNum, bool bWasSuccess
 
 void URouteGameInstance::TryRegisterEosUser()
 {
+	if (!bEnableEOSVoice)
+	{
+		return;
+	}
+
 	if (AccountId <= 0)
 	{
 		return;
