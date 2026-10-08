@@ -20,15 +20,20 @@ class ROUTE_API URouteServerEntryWidget : public UUserWidget
 protected:
 	virtual void NativeConstruct() override;
 
+// ===== Server Info =====
 public:
 	void SetServerInfo(const FRouteServerInfo& InServerInfo);
 
 private:
-	UFUNCTION()
-	void OnconnectClicked();
-
-private:
 	FRouteServerInfo ServerInfo;
+
+// ===== Server Connection =====
+private:
+	UFUNCTION()
+	void OnConnectClicked();
+
+// ===== Widget Components =====
+private:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> Text_ServerName;

@@ -16,7 +16,7 @@ void ARoutePlayerState::SetNickname(const FString& NewNickname)
 {
 	Nickname = NewNickname;
 
-	UE_LOG(LogTemp, Warning, TEXT("RoutePlayerState Nickname Set : %s"), *Nickname)
+	UE_LOG(LogTemp, Warning, TEXT("RoutePlayerState Nickname Set : %s"), *Nickname);
 }
 
 FString ARoutePlayerState::GetNickname() const

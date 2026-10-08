@@ -48,10 +48,6 @@ void ARouteCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	UE_LOG(LogTemp, Warning, TEXT("RouteCharacter SetupPlayerInputComponent called."));
-
-	UE_LOG(LogTemp, Warning, TEXT("MoveAction: %s"), MoveAction ? *MoveAction->GetName() : TEXT("NULL"));
-
 	UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent);
 
 	if (!EnhancedInputComponent)
@@ -94,7 +90,5 @@ void ARouteCharacter::UpdateVoiceIndicator(bool bIsSpeaking)
 	}
 
 	VoiceIndicatorWidget->SetVisibility(bIsSpeaking);
-
-	UE_LOG(LogTemp, Warning, TEXT("Voice Indicator Updated. IsSpeaking: %s"), bIsSpeaking ? TEXT("true") : TEXT("false"));
 }
 

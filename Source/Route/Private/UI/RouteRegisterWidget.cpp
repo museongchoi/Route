@@ -19,10 +19,14 @@ void URouteRegisterWidget::NativeConstruct()
 
 	URouteGameInstance* RouteGameInstance = Cast<URouteGameInstance>(GetGameInstance());
 
-	if (RouteGameInstance)
+	if (!RouteGameInstance)
 	{
-		RouteGameInstance->OnRegisterResultDelegate.AddDynamic(this, &URouteRegisterWidget::HandleRegisterResult);
+		UE_LOG(LogTemp, Error, TEXT("RouteGameInstance is null."));
+		return;
 	}
+
+	RouteGameInstance->OnRegisterResultDelegate.AddDynamic(this, &URouteRegisterWidget::HandleRegisterResult);
+
 }
 
 void URouteRegisterWidget::OnRegisterClicked()
@@ -36,8 +40,6 @@ void URouteRegisterWidget::OnRegisterClicked()
 		Text_Status->SetText(FText::FromString(TEXT("Please fill in all fields.")));
 		return;
 	}
-
-	UE_LOG(LogTemp, Warning, TEXT("Register Clicked. ID: %s, Nickname: %s"), *LoginID, *Nickname);
 
 	URouteGameInstance* RouteGameInstance = Cast<URouteGameInstance>(GetGameInstance());
 
@@ -62,6 +64,7 @@ void URouteRegisterWidget::HandleRegisterResult(bool bSuccess, const FString& Me
 
 	if (!LoginPlayerController)
 	{
+		UE_LOG(LogTemp, Error, TEXT("RouteLoginPlayerController is null."));
 		return;
 	}
 
@@ -74,6 +77,7 @@ void URouteRegisterWidget::OnBackClicked()
 
 	if (!LoginPlayerController)
 	{
+		UE_LOG(LogTemp, Error, TEXT("RouteLoginPlayerController is null."));
 		return;
 	}
 

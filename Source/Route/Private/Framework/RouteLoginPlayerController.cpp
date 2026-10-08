@@ -20,17 +20,71 @@ void ARouteLoginPlayerController::BeginPlay()
 
 	URouteGameInstance* RouteGameInstance = Cast<URouteGameInstance>(GetGameInstance());
 
-	if (RouteGameInstance)
+	if (!RouteGameInstance)
 	{
-		RouteGameInstance->OnServerListUpdatedDelegate.AddDynamic(this, &ARouteLoginPlayerController::HandleServerListUpdated);
+		UE_LOG(LogTemp, Error, TEXT("RouteGameInstance is null."));
+		return;
 	}
+
+	RouteGameInstance->OnServerListUpdatedDelegate.AddDynamic(this, &ARouteLoginPlayerController::HandleServerListUpdated);
 
 	ShowLoginWidget();
 
 	bShowMouseCursor = true;
-
 	FInputModeUIOnly InputMode;
 	SetInputMode(InputMode);
+}
+
+void ARouteLoginPlayerController::ShowLoginWidget()
+{
+	if (RegisterWidget)
+	{
+		RegisterWidget->RemoveFromParent();
+		RegisterWidget = nullptr;
+	}
+
+	if (!LoginWidgetClass)
+	{
+		UE_LOG(LogTemp, Error, TEXT("LoginWidgetClass is null."));
+		return;
+	}
+
+	LoginWidget = CreateWidget<URouteLoginWidget>(this, LoginWidgetClass);
+
+	if (!LoginWidget)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to create LoginWidget."));
+		return;
+	}
+
+	LoginWidget->AddToViewport();
+}
+
+void ARouteLoginPlayerController::ShowRegisterWidget()
+{
+	if (LoginWidget)
+	{
+		LoginWidget->RemoveFromParent();
+		LoginWidget = nullptr;
+	}
+
+	if (!RegisterWidgetClass)
+	{
+		UE_LOG(LogTemp, Error, TEXT("RegisterWidgetClass is null."));
+		return;
+	}
+
+	RegisterWidget = CreateWidget<URouteRegisterWidget>(
+		this,
+		RegisterWidgetClass
+	);
+
+	if (!RegisterWidget)
+	{
+		return;
+	}
+
+	RegisterWidget->AddToViewport();
 }
 
 void ARouteLoginPlayerController::HandleServerListUpdated()
@@ -43,6 +97,7 @@ void ARouteLoginPlayerController::HandleServerListUpdated()
 
 	if (!ServerListWidgetClass)
 	{
+		UE_LOG(LogTemp, Error, TEXT("ServerListWidgetClass is null."));
 		return;
 	}
 
@@ -61,51 +116,4 @@ void ARouteLoginPlayerController::HandleServerListUpdated()
 	SetInputMode(InputMode);
 }
 
-void ARouteLoginPlayerController::ShowRegisterWidget()
-{
-	if (LoginWidget)
-	{
-		LoginWidget->RemoveFromParent();
-		LoginWidget = nullptr;
-	}
 
-	if (!RegisterWidgetClass)
-	{
-		return;
-	}
-
-	RegisterWidget = CreateWidget<URouteRegisterWidget>(
-		this,
-		RegisterWidgetClass
-	);
-
-	if (!RegisterWidget)
-	{
-		return;
-	}
-
-	RegisterWidget->AddToViewport();
-}
-
-void ARouteLoginPlayerController::ShowLoginWidget()
-{
-	if (RegisterWidget)
-	{
-		RegisterWidget->RemoveFromParent();
-		RegisterWidget = nullptr;
-	}
-
-	if (!LoginWidgetClass)
-	{
-		return;
-	}
-
-	LoginWidget = CreateWidget<URouteLoginWidget>(this, LoginWidgetClass);
-
-	if (!LoginWidget)
-	{
-		return;
-	}
-
-	LoginWidget->AddToViewport();
-}

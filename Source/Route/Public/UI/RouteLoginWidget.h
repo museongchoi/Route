@@ -21,14 +21,21 @@ class ROUTE_API URouteLoginWidget : public UUserWidget
 protected:
 	virtual void NativeConstruct() override;
 
+// ===== Login =====
 private:
 	UFUNCTION()
 	void OnLoginClicked();
 
-	//Register 회원가입
+	// Backend 로그인 결과 Delegate Callback
+	UFUNCTION()
+	void HandleLoginResult(bool bSuccess, const FString& Message);
+
+// ===== Register Navigation =====
+private:
 	UFUNCTION()
 	void OnRegisterClicked();
 
+// ===== Widget Components =====
 private:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UEditableTextBox> EditableTextBox_ID;
@@ -44,9 +51,5 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> Text_Status;
-
-private:
-	UFUNCTION()
-	void HandleLoginResult(bool bSuccess, const FString& Message);
 
 };

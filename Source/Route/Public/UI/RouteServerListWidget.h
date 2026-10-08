@@ -17,13 +17,18 @@ class ROUTE_API URouteServerListWidget : public UUserWidget
 {
 	GENERATED_BODY()
 
+// ===== Server List =====
+// GameInstance의 CachedServerList를 UI Entry로 생성
 public:
 	void RefreshServerList();
 
+// ===== Widget Components =====
 private:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UVerticalBox> VerticalBox_ServerList;
 
+// ===== Widget Class =====
+private:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<URouteServerEntryWidget> ServerEntryWidgetClass;
 

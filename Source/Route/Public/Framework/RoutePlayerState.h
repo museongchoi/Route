@@ -17,12 +17,13 @@ class ROUTE_API ARoutePlayerState : public APlayerState
 public:
 	ARoutePlayerState();
 
-// Nickname
+// ===== Nickname =====
 public:
 	void SetNickname(const FString& NewNickname);
 	FString GetNickname() const;
 
 private:
+	// Nickname Replication Callback
 	UFUNCTION()
 	void OnRep_Nickname();
 
@@ -30,12 +31,13 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_Nickname, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	FString Nickname;
 
-// Voice
+// ===== Voice =====
 public:
 	bool IsSpeaking() const { return bIsSpeaking; }
 	void SetIsSpeaking(bool bNewIsSpeaking);
 
 protected:
+	// Speaking 상태 Replication Callback
 	UFUNCTION()
 	void OnRep_IsSpeaking();
 
@@ -43,7 +45,7 @@ protected:
 	UPROPERTY(ReplicatedUsing = OnRep_IsSpeaking, BlueprintReadOnly, Category = "Voice")
 	bool bIsSpeaking = false;
 
-// Replication
+// ===== Replication =====
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 

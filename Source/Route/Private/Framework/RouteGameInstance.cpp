@@ -40,54 +40,15 @@ void URouteGameInstance::Init()
 
 	bEnableEOSVoice = FParse::Param(FCommandLine::Get(), TEXT("EnableEOSVoice"));
 
-	//RequestServerListFromTcpServer();
-
 	if (bEnableEOSVoice)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("EOS Voice enabled."));
+		UE_LOG(LogTemp, Warning, TEXT("[EOS] Voice 활성화"));
 		RequestEOSLogin();
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("EOS Voice disabled."));
+		UE_LOG(LogTemp, Warning, TEXT("[EOS] Voice 비활성화 - EOS 로그인 생략"));
 	}
-}
-
-bool URouteGameInstance::TravelToFirstServer()
-{
-	if (CachedServerList.Num() <= 0)
-	{
-		UE_LOG(LogTemp, Error, TEXT("CachedServerList is empty.ClientTravel canceled."));
-		return false;
-	}
-
-	const FRouteServerInfo& ServerInfo = CachedServerList[0];
-
-	if (ServerInfo.IpAddress.IsEmpty() || ServerInfo.Port <= 0)
-	{
-		UE_LOG(LogTemp, Error, TEXT("Invalid server address. ClientTravel canceled."));
-		return false;
-	}
-	
-	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
-
-	if (!PlayerController)
-	{
-		UE_LOG(LogTemp, Error, TEXT("PlayerController is null. ClientTravel canceled"));
-		return false;
-	}
-
-	const FString ServerAddress = FString::Printf(
-		TEXT("%s:%d"),
-		*ServerInfo.IpAddress,
-		ServerInfo.Port
-	);
-
-	UE_LOG(LogTemp, Warning, TEXT("ClientTravel to cached server: %s"), *ServerAddress);
-
-	PlayerController->ClientTravel(ServerAddress, TRAVEL_Absolute);
-
-	return true;
 }
 
 void URouteGameInstance::RequestLogin(const FString& LoginId, const FString& Password)
@@ -160,9 +121,141 @@ FString URouteGameInstance::GetNickname() const
 	return Nickname;
 }
 
+void URouteGameInstance::HandleLoginResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+{
+	if (!bWasSuccessful || !Response.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("Login request failed."));
+		return;
+	}
+
+	const FString ResponseBody = Response->GetContentAsString();
+
+	UE_LOG(LogTemp, Log, TEXT("Login Response: %s"), *ResponseBody);
+
+	TSharedPtr<FJsonObject> ResponseJson;
+
+	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseBody);
+
+	if (!FJsonSerializer::Deserialize(Reader, ResponseJson) || !ResponseJson.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("Login response JSON parse failed."));
+		return;
+	}
+
+	bool bSuccess = false;
+
+	if (!ResponseJson->TryGetBoolField(TEXT("success"), bSuccess))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Login response has no success field."));
+		return;
+	}
+
+	// Backend 로그인 인증 결과
+	if (!bSuccess)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Login failed."));
+		OnLoginResultDelegate.Broadcast(false, TEXT("Invalid ID or password."));
+
+		return;
+	}
+
+	ResponseJson->TryGetNumberField(TEXT("account_id"), AccountId);
+	ResponseJson->TryGetStringField(TEXT("nickname"), Nickname);
+	ResponseJson->TryGetStringField(TEXT("session_token"), SessionToken);
+
+	// EOS Login과 Route Login이 모두 완료된 경우 PUID 등록
+	TryRegisterEosUser();
+
+	UE_LOG(LogTemp, Warning, TEXT("[Backend] 로그인 성공 | AccountId: %d | Nickname: %s"), AccountId, *Nickname);
+
+	OnLoginResultDelegate.Broadcast(true, TEXT("Login succeeded"));
+
+	RequestServerListFromTcpServer();
+}
+
+void URouteGameInstance::HandleRegisterResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+{
+	if (!bWasSuccessful || !Response.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("Register request failed."));
+
+		OnRegisterResultDelegate.Broadcast(false, TEXT("Failed to connect to server."));
+
+		return;
+	}
+
+	const FString ResponseBody = Response->GetContentAsString();
+
+	UE_LOG(LogTemp, Log, TEXT("Register Response: %s"), *ResponseBody);
+
+	TSharedPtr<FJsonObject> ResponseJson;
+
+	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseBody);
+	if (!FJsonSerializer::Deserialize(Reader, ResponseJson) || !ResponseJson.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("Register response JSON parse failed."));
+
+		OnRegisterResultDelegate.Broadcast(false, TEXT("Invalid server response."));
+
+		return;
+	}
+
+	bool bSuccess = false;
+	FString Message;
+
+	if (!ResponseJson->TryGetBoolField(TEXT("success"), bSuccess))
+	{
+		OnRegisterResultDelegate.Broadcast(false, TEXT("Invalid server response."));
+
+		return;
+	}
+
+	ResponseJson->TryGetStringField(TEXT("message"), Message);
+
+	OnRegisterResultDelegate.Broadcast(bSuccess, Message);
+}
+
 const TArray<FRouteServerInfo>& URouteGameInstance::GetCachedServerList() const
 {
 	return CachedServerList;
+}
+
+bool URouteGameInstance::TravelToFirstServer()
+{
+	if (CachedServerList.Num() <= 0)
+	{
+		UE_LOG(LogTemp, Error, TEXT("CachedServerList is empty.ClientTravel canceled."));
+		return false;
+	}
+
+	const FRouteServerInfo& ServerInfo = CachedServerList[0];
+
+	if (ServerInfo.IpAddress.IsEmpty() || ServerInfo.Port <= 0)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Invalid server address. ClientTravel canceled."));
+		return false;
+	}
+
+	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
+
+	if (!PlayerController)
+	{
+		UE_LOG(LogTemp, Error, TEXT("PlayerController is null. ClientTravel canceled"));
+		return false;
+	}
+
+	const FString ServerAddress = FString::Printf(
+		TEXT("%s:%d"),
+		*ServerInfo.IpAddress,
+		ServerInfo.Port
+	);
+
+	UE_LOG(LogTemp, Warning, TEXT("ClientTravel to cached server: %s"), *ServerAddress);
+
+	PlayerController->ClientTravel(ServerAddress, TRAVEL_Absolute);
+
+	return true;
 }
 
 bool URouteGameInstance::RequestServerListFromTcpServer()
@@ -326,111 +419,21 @@ bool URouteGameInstance::ParseServerListResponse(const FString& Response)
 
 		CachedServerList.Add(ServerInfo);
 
-		UE_LOG(LogTemp, Warning, TEXT("Parsed Server[%d] Name: %s"), Index, *ServerInfo.ServerName);
-		UE_LOG(LogTemp, Warning, TEXT("Parsed Server[%d] Address: %s:%d"), Index, *ServerInfo.IpAddress, ServerInfo.Port);
-		UE_LOG(LogTemp, Warning, TEXT("Parsed Server[%d] Players: %d / %d"), Index, ServerInfo.CurrentPlayers, ServerInfo.MaxPlayers);
-		UE_LOG(LogTemp, Warning, TEXT("Parsed Server[%d] Status: %s"), Index, *ServerInfo.Status);
+		UE_LOG(LogTemp, Warning, TEXT("Parsed Server[%d] | %s | %s:%d | %d/%d | %s"), 
+			Index, 
+			*ServerInfo.ServerName,
+			*ServerInfo.IpAddress,
+			ServerInfo.Port,
+			ServerInfo.CurrentPlayers,
+			ServerInfo.MaxPlayers,
+			*ServerInfo.Status
+		);
 
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("Parsed Server Count: %d"), CachedServerList.Num());
+	UE_LOG(LogTemp, Log, TEXT("[TCP] 서버 목록 갱신 완료 | Server Count: %d"), CachedServerList.Num());
 
 	return true;
-}
-
-void URouteGameInstance::HandleLoginResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
-{
-	if (!bWasSuccessful || !Response.IsValid())
-	{
-		UE_LOG(LogTemp, Error, TEXT("Login request failed."));
-		return;
-	}
-
-	const FString ResponseBody = Response->GetContentAsString();
-
-	UE_LOG(LogTemp, Log, TEXT("Login Response: %s"), *ResponseBody);
-
-	TSharedPtr<FJsonObject> ResponseJson;
-
-	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseBody);
-
-	if (!FJsonSerializer::Deserialize(Reader, ResponseJson) || !ResponseJson.IsValid())
-	{
-		UE_LOG(LogTemp, Error, TEXT("Login response JSON parse failed."));
-		return;
-	}
-
-	bool bSuccess = false;
-
-	if (!ResponseJson->TryGetBoolField(TEXT("success"), bSuccess))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Login response has no success field."));
-		return;
-	}
-
-	// Json 의 success : 로그인 인증 성공 여부
-	if (!bSuccess)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Login failed."));
-		OnLoginResultDelegate.Broadcast(false, TEXT("Invalid ID or password."));
-
-		return;
-	}
-
-	ResponseJson->TryGetNumberField(TEXT("account_id"), AccountId);
-	ResponseJson->TryGetStringField(TEXT("nickname"), Nickname);
-	ResponseJson->TryGetStringField(TEXT("session_token"), SessionToken);
-
-	// 추가
-	TryRegisterEosUser();
-
-	UE_LOG(LogTemp, Warning, TEXT("Login succeeded. AccountId: %d, Nickname: %s"), AccountId, *Nickname);
-
-	OnLoginResultDelegate.Broadcast(true, TEXT("Login succeeded"));
-
-	RequestServerListFromTcpServer();
-}
-
-void URouteGameInstance::HandleRegisterResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
-{
-	if (!bWasSuccessful || !Response.IsValid())
-	{
-		UE_LOG(LogTemp, Error, TEXT("Register request failed."));
-
-		OnRegisterResultDelegate.Broadcast(false, TEXT("Failed to connect to server."));
-
-		return;
-	}
-
-	const FString ResponseBody = Response->GetContentAsString();
-
-	UE_LOG(LogTemp, Log, TEXT("Register Response: %s"), *ResponseBody);
-
-	TSharedPtr<FJsonObject> ResponseJson;
-
-	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseBody);
-	if (!FJsonSerializer::Deserialize(Reader, ResponseJson) || !ResponseJson.IsValid())
-	{
-		UE_LOG(LogTemp, Error, TEXT("Register response JSON parse failed."));
-
-		OnRegisterResultDelegate.Broadcast(false, TEXT("Invalid server response."));
-
-		return;
-	}
-
-	bool bSuccess = false;
-	FString Message;
-
-	if (!ResponseJson->TryGetBoolField(TEXT("success"), bSuccess))
-	{
-		OnRegisterResultDelegate.Broadcast(false, TEXT("Invalid server response."));
-
-		return;
-	}
-
-	ResponseJson->TryGetStringField(TEXT("message"), Message);
-
-	OnRegisterResultDelegate.Broadcast(bSuccess, Message);
 }
 
 void URouteGameInstance::RequestEOSLogin()
@@ -496,8 +499,6 @@ void URouteGameInstance::HandleEOSLoginComplete(int32 LocalUserNum, bool bWasSuc
 		return;
 	}
 
-	//UE_LOG(LogTemp, Warning, TEXT("EOS Login succeeded. UserId: %s"), *UserId.ToString());
-
 	const FString UniqueIdString = UserId.ToString();
 
 	FString EpicAccountId;
@@ -511,18 +512,13 @@ void URouteGameInstance::HandleEOSLoginComplete(int32 LocalUserNum, bool bWasSuc
 
 	EosProductUserId = ProductUserId;
 
-	UE_LOG(LogTemp, Warning, TEXT("EOS Login succeeded. PUID: %s"), *EosProductUserId);
+	UE_LOG(LogTemp, Warning, TEXT("[EOS] 로그인 성공 | PUID: %s"), *EosProductUserId);
 
-	// BackendServer에 Route Account ↔ EOS PUID 매핑
+	// Route Account ↔ EOS PUID 매핑 시도
 	TryRegisterEosUser();
 
-	// EOS VoiceChat 초기화 시작
+	// EOS VoiceChat 초기화
 	InitializeVoiceChat();
-}
-
-void URouteGameInstance::OnEOSLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error)
-{
-	UE_LOG(LogTemp, Log, TEXT("EOS Login Complete | Success: %s | UserId: %s | Error: %s"), bWasSuccessful ? TEXT("true") : TEXT("false"), *UserId.ToString(), *Error);
 }
 
 void URouteGameInstance::TryRegisterEosUser()
@@ -561,8 +557,6 @@ void URouteGameInstance::RequestRegisterEosUser()
 {
 	TSharedRef<FJsonObject> RequestJson = MakeShared<FJsonObject>();
 
-	//RequestJson->SetNumberField(TEXT("account_id"), AccountId);
-
 	RequestJson->SetStringField(TEXT("eos_puid"), EosProductUserId);
 
 	
@@ -571,8 +565,6 @@ void URouteGameInstance::RequestRegisterEosUser()
 	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBody);
 
 	FJsonSerializer::Serialize(RequestJson, Writer);
-
-	UE_LOG(LogTemp, Warning, TEXT("Voice Register Request Body: %s"), *RequestBody);
 
 	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> HttpRequest = FHttpModule::Get().CreateRequest();
 
@@ -635,7 +627,7 @@ void URouteGameInstance::HandleRegisterEosUserResponse(FHttpRequestPtr Request, 
 
 	bEosUserRegistered = true;
 
-	UE_LOG(LogTemp, Warning, TEXT("EOS user register succeeded."));
+	UE_LOG(LogTemp, Warning, TEXT("[Backend/EOS] Route 계정 - EOS PUID 등록 성공"));
 
 	TryRequestVoiceJoin();
 }
@@ -678,7 +670,7 @@ void URouteGameInstance::HandleVoiceChatConnectComplete(const FVoiceChatResult& 
 		return;
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("VoiceChat connect succeeded."));
+	UE_LOG(LogTemp, Warning, TEXT("[Voice] VoiceChat 연결 성공"));
 
 	if (!VoiceChatUser || EosProductUserId.IsEmpty())
 	{
@@ -708,6 +700,33 @@ void URouteGameInstance::HandleVoiceChatLoginComplete(const FString& PlayerName,
 	TryRequestVoiceJoin();
 }
 
+void URouteGameInstance::TryRequestVoiceJoin()
+{
+	if (!bVoiceChatLoggedIn)
+	{
+		return;
+	}
+
+	if (SessionToken.IsEmpty())
+	{
+		return;
+	}
+
+	if (!bEosUserRegistered)
+	{
+		return;
+	}
+
+	if (bVoiceJoinRequested)
+	{
+		return;
+	}
+
+	bVoiceJoinRequested = true;
+
+	RequestVoiceJoin();
+}
+
 void URouteGameInstance::RequestVoiceJoin()
 {
 	if (SessionToken.IsEmpty())
@@ -716,7 +735,7 @@ void URouteGameInstance::RequestVoiceJoin()
 		return;
 	}
 
-	//EndPoint 는 Content-Type 이나 JSON Body 요구 x.
+	// /voice/join은 Authorization Header만 사용하고 JSON Body는 전송하지 않음
 	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> HttpRequest = FHttpModule::Get().CreateRequest();
 
 	HttpRequest->SetURL(TEXT("http://127.0.0.1:8080/voice/join"));
@@ -802,33 +821,6 @@ void URouteGameInstance::HandleVoiceJoinResponse(FHttpRequestPtr Request, FHttpR
 	);
 }
 
-void URouteGameInstance::TryRequestVoiceJoin()
-{
-	if (!bVoiceChatLoggedIn)
-	{
-		return;
-	}
-
-	if (SessionToken.IsEmpty())
-	{
-		return;
-	}
-
-	if (!bEosUserRegistered)
-	{
-		return;
-	}
-
-	if (bVoiceJoinRequested)
-	{
-		return;
-	}
-
-	bVoiceJoinRequested = true;
-
-	RequestVoiceJoin();
-}
-
 void URouteGameInstance::HandleVoiceChannelJoinComplete(const FString& ChannelName, const FVoiceChatResult& Result)
 {
 	if (!Result.IsSuccess())
@@ -837,7 +829,7 @@ void URouteGameInstance::HandleVoiceChannelJoinComplete(const FString& ChannelNa
 		return;
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("Voice channel join succeeded. Channel: % s"), *ChannelName);
+	UE_LOG(LogTemp, Warning, TEXT("[Voice] Voice Room 참가 성공 | Room: %s"), *ChannelName);
 	if (VoiceChatUser)
 	{
 		VoiceChatUser->TransmitToNoChannels();

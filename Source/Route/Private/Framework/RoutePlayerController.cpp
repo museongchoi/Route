@@ -17,14 +17,10 @@ void ARoutePlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	UE_LOG(LogTemp, Warning, TEXT("RoutePlayerController BeginPlay"));
-
 	if (!IsLocalController())
 	{
 		return;
 	}
-
-	UE_LOG(LogTemp, Warning, TEXT("RoutePlayerController BeginPlay - Local Controller"));
 
 	FInputModeGameOnly InputMode;
 	SetInputMode(InputMode);
@@ -39,27 +35,21 @@ void ARoutePlayerController::BeginPlay()
 		return;
 	}
 
-	if (LocalPlayer)
+	UEnhancedInputLocalPlayerSubsystem* InputSubsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>();
+
+	if (!InputSubsystem)
 	{
-		if (UEnhancedInputLocalPlayerSubsystem* InputSubsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
-		{
-			if (PlayerMappingContext)
-			{
-				InputSubsystem->AddMappingContext(PlayerMappingContext, 0);
-				UE_LOG(LogTemp, Warning, TEXT("Mapping Context added: %s"), *PlayerMappingContext->GetName());
-			}
-			else
-			{
-				UE_LOG(LogTemp, Error, TEXT("PlayerMappingContext is null."));
-				return;
-			}
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error, TEXT("EnhancedInputLocalPlayerSubsystem is null."));
-			return;
-		}
+		UE_LOG(LogTemp, Error, TEXT("EnhancedInputLocalPlayerSubsystem is null."));
+		return;
 	}
+
+	if (!PlayerMappingContext)
+	{
+		UE_LOG(LogTemp, Error, TEXT("PlayerMappingContext is null."));
+		return;
+	}
+
+	InputSubsystem->AddMappingContext(PlayerMappingContext, 0);
 
 	FTimerHandle TimerHandle;
 
@@ -75,10 +65,6 @@ void ARoutePlayerController::BeginPlay()
 void ARoutePlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
-
-	UE_LOG(LogTemp, Warning, TEXT("RoutePlayerController SetupInputComponent called."));
-
-	UE_LOG(LogTemp, Warning, TEXT("PushToTalkAction: %s"), PushToTalkAction ? *PushToTalkAction->GetName() : TEXT("NULL"));
 
 	UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent);
 
@@ -123,8 +109,6 @@ void ARoutePlayerController::SendNicknameToServer()
 		return;
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("SendNicknameToServer: %s"), *Nickname);
-
 	ServerSetNickname(Nickname);
 }
 
@@ -156,7 +140,6 @@ void ARoutePlayerController::StartVoiceTransmit()
 
 	RouteGameInstance->StartVoiceTransmit();
 
-	UE_LOG(LogTemp, Warning, TEXT("Call ServerSetSpeaking(true)"));
 	ServerSetSpeaking(true);
 }
 
@@ -173,28 +156,18 @@ void ARoutePlayerController::StopVoiceTransmit()
 
 	RouteGameInstance->StopVoiceTransmit();
 
-	UE_LOG(LogTemp, Warning, TEXT("Call ServerSetSpeaking(false)"));
 	ServerSetSpeaking(false);
 }
 
 void ARoutePlayerController::ServerSetSpeaking_Implementation(bool bNewIsSpeaking)
 {
-	UE_LOG(
-		LogTemp,
-		Warning,
-		TEXT("ServerSetSpeaking called: %s"),
-		bNewIsSpeaking ? TEXT("true") : TEXT("false")
-	);
+	UE_LOG(LogTemp, Warning, TEXT("ServerSetSpeaking called: %s"), bNewIsSpeaking ? TEXT("true") : TEXT("false"));
 
 	ARoutePlayerState* RoutePlayerState = GetPlayerState<ARoutePlayerState>();
 
 	if (!RoutePlayerState)
 	{
-		UE_LOG(
-			LogTemp,
-			Error,
-			TEXT("RoutePlayerState is null. SetIsSpeaking failed.")
-		);
+		UE_LOG(LogTemp, Error, TEXT("RoutePlayerState is null. SetIsSpeaking failed."));
 
 		return;
 	}

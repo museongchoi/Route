@@ -18,7 +18,7 @@ class ROUTE_API URouteRegisterWidget : public UUserWidget
 protected:
 	virtual void NativeConstruct() override;
 
-// Register
+// ===== Register =====
 private:
 	UFUNCTION()
 	void OnRegisterClicked();
@@ -26,6 +26,11 @@ private:
 	// 결과 처리 함수
 	UFUNCTION()
 	void HandleRegisterResult(bool bSuccess, const FString& Message);
+
+// ===== Back Navigation =====
+private:
+	UFUNCTION()
+	void OnBackClicked();
 
 private:
 	UPROPERTY(meta = (BindWidget))
@@ -43,13 +48,6 @@ private:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> Text_Status;
 
-// Back
-private:
-	UFUNCTION()
-	void OnBackClicked();
-
-private:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> Button_Back;
-	
 };

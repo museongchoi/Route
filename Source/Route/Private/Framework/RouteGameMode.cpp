@@ -4,7 +4,6 @@
 #include "Framework/RouteGameMode.h"
 
 #include "Framework/RoutePlayerState.h"
-#include "Framework/RoutePlayerController.h"
 
 #include "Sockets.h"
 #include "SocketSubsystem.h"
@@ -20,15 +19,12 @@
 
 ARouteGameMode::ARouteGameMode()
 {
-	//PlayerStateClass = ARoutePlayerState::StaticClass();
-	//PlayerControllerClass = ARoutePlayerController::StaticClass();
+
 }
 
 void ARouteGameMode::BeginPlay()
 {
 	Super::BeginPlay();
-
-	UE_LOG(LogTemp, Warning, TEXT("RouteGameMode BeginPlay"));
 
 	if (GetNetMode() != NM_DedicatedServer)
 	{
@@ -40,7 +36,7 @@ void ARouteGameMode::BeginPlay()
 	FParse::Value(FCommandLine::Get(), TEXT("port="), ServerPort);
 	FParse::Value(FCommandLine::Get(), TEXT("MaxPlayers="), MaxPlayers);
 
-	UE_LOG(LogTemp, Warning, TEXT("Dedicated Server Config | Name: %s | Port: %d | MaxPlayers: %d"), *ServerName, ServerPort, MaxPlayers);
+	UE_LOG(LogTemp, Warning, TEXT("Dedicated Server 설정 완료 | Name: %s | Port: %d | MaxPlayers: %d"), *ServerName, ServerPort, MaxPlayers);
 
 	if (!RegisterServerToTcpServer())
 	{
@@ -55,8 +51,6 @@ void ARouteGameMode::BeginPlay()
 		5.0f,
 		true
 	);
-
-	UE_LOG(LogTemp, Warning, TEXT("Heartbeat timer started. Interval: 5 seconds."));
 }
 
 void ARouteGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
@@ -71,12 +65,11 @@ void ARouteGameMode::PreLogin(const FString& Options, const FString& Address, co
 	if (CurrentPlayers >= MaxPlayers)
 	{
 		ErrorMessage = TEXT("Server is full.");
-		UE_LOG(LogTemp, Warning, TEXT("PreLogin rejected. Server full: %d / %d"), CurrentPlayers, MaxPlayers);
+		UE_LOG(LogTemp, Warning, TEXT("[Client] 접속 거부 - 서버 정원 초과 | %d / %d"), CurrentPlayers, MaxPlayers);
 		
 		return;
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("PreLogin accepted. CurrentPlayers: %d / %d"), CurrentPlayers, MaxPlayers);
 }
 
 void ARouteGameMode::PostLogin(APlayerController* NewPlayer)
@@ -90,11 +83,9 @@ void ARouteGameMode::PostLogin(APlayerController* NewPlayer)
 
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("RouteGameMode PostLogin"));
-
 	CurrentPlayers = FMath::Clamp(CurrentPlayers + 1, 0, MaxPlayers);
 
-	UE_LOG(LogTemp, Warning, TEXT("CurrentPlayers increased: %d / %d"), CurrentPlayers, MaxPlayers);
+	UE_LOG(LogTemp, Warning, TEXT("[DedicatedServer] Client 접속 완료 | Players: %d / %d"), CurrentPlayers, MaxPlayers);
 
 	if (!NewPlayer)
 	{
@@ -105,11 +96,7 @@ void ARouteGameMode::PostLogin(APlayerController* NewPlayer)
 
 	ARoutePlayerState* RoutePlayerState = NewPlayer->GetPlayerState<ARoutePlayerState>();
 
-	if (RoutePlayerState)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("RoutePlayerState assigned successfully."));
-	}
-	else
+	if (!RoutePlayerState)
 	{
 		UE_LOG(LogTemp, Error, TEXT("RoutePlayerState cast failed."));
 	}
@@ -136,11 +123,9 @@ void ARouteGameMode::Logout(AController* ExitingPlayer)
 		return;
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("RouteGameMode Logout"));
-
 	CurrentPlayers = FMath::Max(0, CurrentPlayers - 1);
 
-	UE_LOG(LogTemp, Warning, TEXT("CurrentPlayers decreased: %d / %d"), CurrentPlayers, MaxPlayers);
+	UE_LOG(LogTemp, Warning, TEXT("[DedicatedServer] Client 접속 종료 | Player: %d / %d"), CurrentPlayers, MaxPlayers);
 
 	if (!ExitingPlayer)
 	{
@@ -203,7 +188,7 @@ bool ARouteGameMode::RegisterServerToTcpServer()
 		return false;
 	}
 
-	// TCP Connet
+	// TCP Connect
 	if (!Socket->Connect(*TcpServerAddress))
 	{
 		UE_LOG(LogTemp, Error, TEXT("Connect to TCPServer failed."));
@@ -268,7 +253,7 @@ bool ARouteGameMode::RegisterServerToTcpServer()
 
 			const FString Response = FString(UTF8_TO_TCHAR(reinterpret_cast<const char*>(ReceiveBuffer)));
 
-			UE_LOG(LogTemp, Log, TEXT("TCPServer Response: %s"), *Response);
+			UE_LOG(LogTemp, Log, TEXT("[TCPServer] Dedicated Server 등록 응답 | % s"), *Response);
 		}
 	}
 	else
@@ -296,7 +281,7 @@ bool ARouteGameMode::UpdateServerToTcpServer()
 
 	if (!FIPv4Address::Parse(TEXT("127.0.0.1"), TcpServerIp))
 	{
-		UE_LOG(LogTemp, Error, TEXT("Invaild TCPServer IP."));
+		UE_LOG(LogTemp, Error, TEXT("Invalid TCPServer IP."));
 		return false;
 	}
 
@@ -382,7 +367,7 @@ bool ARouteGameMode::UpdateServerToTcpServer()
 			const FString Response =
 				FString(UTF8_TO_TCHAR(reinterpret_cast<const char*>(ReceiveBuffer)));
 
-			UE_LOG(LogTemp, Log, TEXT("TCPServer Update Response: %s"), *Response);
+			UE_LOG(LogTemp, Log, TEXT("[TCPServer] 서버 상태 갱신 응답 | %s"), *Response);
 		}
 	}
 	else
@@ -482,7 +467,7 @@ void ARouteGameMode::SendHeartbeatToTcpServer()
 
 			const FString Response = FString(UTF8_TO_TCHAR(reinterpret_cast<const char*>(ReceiveBuffer)));
 
-			UE_LOG(LogTemp, Warning, TEXT("TCPServer Heartbeat Response: %s"), *Response);
+			UE_LOG(LogTemp, Warning, TEXT("[Heartbeat] TCPServer 응답 | %s"), *Response);
 		}
 	}
 	else

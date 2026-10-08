@@ -20,11 +20,13 @@ void URouteServerListWidget::RefreshServerList()
 
 	if (!RouteGameInstance)
 	{
+		UE_LOG(LogTemp, Error, TEXT("RouteGameInstance is null."));
 		return;
 	}
 
 	if (!ServerEntryWidgetClass)
 	{
+		UE_LOG(LogTemp, Error, TEXT("ServerEntryWidgetClass is null."));
 		return;
 	}
 
@@ -36,6 +38,7 @@ void URouteServerListWidget::RefreshServerList()
 
 		if (!EntryWidget)
 		{
+			UE_LOG(LogTemp, Error, TEXT("Failed to create ServerEntryWidget."));
 			continue;
 		}
 

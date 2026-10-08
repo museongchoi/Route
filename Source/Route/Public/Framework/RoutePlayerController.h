@@ -19,7 +19,7 @@ protected:
 
 	virtual void SetupInputComponent() override;
 
-// Input
+// ===== Input =====
 private:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputMappingContext> PlayerMappingContext;
@@ -27,18 +27,20 @@ private:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> PushToTalkAction;
 
-//Nickname
+// ===== Nickname =====
 private:
 	void SendNicknameToServer();
 
+	// Client Nickname 전달용 Server RPC
 	UFUNCTION(Server, Reliable)
 	void ServerSetNickname(const FString& NewNickname);
 
-// Voice
+// ===== Voice =====
 private:
 	void StartVoiceTransmit();
 	void StopVoiceTransmit();
 
+	// Client Speaking 상태 전달용 Server RPC
 	UFUNCTION(Server, Reliable)
 	void ServerSetSpeaking(bool bNewIsSpeaking);
 

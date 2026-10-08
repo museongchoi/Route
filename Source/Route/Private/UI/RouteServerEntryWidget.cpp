@@ -11,7 +11,7 @@ void URouteServerEntryWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	Button_Connect->OnClicked.AddDynamic(this, &URouteServerEntryWidget::OnconnectClicked);
+	Button_Connect->OnClicked.AddDynamic(this, &URouteServerEntryWidget::OnConnectClicked);
 
 }
 
@@ -21,12 +21,12 @@ void URouteServerEntryWidget::SetServerInfo(const FRouteServerInfo& InServerInfo
 
 	Text_ServerName->SetText(FText::FromString(ServerInfo.ServerName));
 
-	const FString PlayerCountText = FString::Printf(TEXT(" % d / % d"), ServerInfo.CurrentPlayers, ServerInfo.MaxPlayers);
+	const FString PlayerCountText = FString::Printf(TEXT(" %d / %d"), ServerInfo.CurrentPlayers, ServerInfo.MaxPlayers);
 
 	Text_PlayerCount->SetText(FText::FromString(PlayerCountText));
 }
 
-void URouteServerEntryWidget::OnconnectClicked()
+void URouteServerEntryWidget::OnConnectClicked()
 {
 	APlayerController* PlayerController = GetOwningPlayer();
 

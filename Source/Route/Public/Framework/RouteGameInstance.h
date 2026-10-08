@@ -26,52 +26,18 @@ class ROUTE_API URouteGameInstance : public UGameInstance
 public:
 	virtual void Init() override;
 
-	bool TravelToFirstServer();
-
-// Account
+// ===== Account =====
+// Backend 로그인 or 회원가입 요청
 public:
 	void RequestLogin(const FString& LoginId, const FString& Password);
-
 	void RequestRegister(const FString& LoginId, const FString& Password, const FString& NewNickname);
 
 	void SetNickname(const FString& NewNickname);
 	FString GetNickname() const;
 
-	const TArray<FRouteServerInfo>& GetCachedServerList() const;
-
 private:
-	bool RequestServerListFromTcpServer();
-	bool ParseServerListResponse(const FString& Response);
-
 	void HandleLoginResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
 	void HandleRegisterResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
-
-public:
-	void RequestEOSLogin();
-	FString GetEosProductUserId() const;
-
-private:
-	void HandleEOSLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error);
-
-	void OnEOSLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error);
-
-	void TryRegisterEosUser();
-
-	void RequestRegisterEosUser();
-
-	void HandleRegisterEosUserResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
-
-public:
-	UPROPERTY(BlueprintAssignable)
-	FOnLoginResultDelegate OnLoginResultDelegate;
-
-	UPROPERTY(BlueprintAssignable)
-	FOnRegisterResultDelegate OnRegisterResultDelegate;
-
-	UPROPERTY(BlueprintAssignable)
-	FOnServerListUpdatedDelegate OnServerListUpdatedDelegate;
-
-	FDelegateHandle EOSLoginCompleteDelegateHandle;
 
 private:
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
@@ -80,52 +46,121 @@ private:
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	FString Nickname;
 
+	// Backend 인증 토큰
+	// EOS PUID 등록 및 Voice Join 요청의 Bearer Token으로 사용
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	FString SessionToken;
+
+// ===== Account Delegate =====
+public:
+	UPROPERTY(BlueprintAssignable)
+	FOnLoginResultDelegate OnLoginResultDelegate;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnRegisterResultDelegate OnRegisterResultDelegate;
+
+// ===== Server List =====
+public:
+	const TArray<FRouteServerInfo>& GetCachedServerList() const;
+	
+	bool TravelToFirstServer();
+
+private:
+	// TCPServer에 OPEN 상태 서버 목록 요청
+	bool RequestServerListFromTcpServer();
+
+	// TCPServer 응답 JSON을 CachedServerList로 변환
+	bool ParseServerListResponse(const FString& Response);
+
+private:
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	TArray<FRouteServerInfo> CachedServerList;
+
+public:
+	UPROPERTY(BlueprintAssignable)
+	FOnServerListUpdatedDelegate OnServerListUpdatedDelegate;
+
+// ===== EOS Login =====
+public:
+	// EOS Developer Login 요청
+	void RequestEOSLogin();
+
+	FString GetEosProductUserId() const;
+
+private:
+	void HandleEOSLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error);
+
+private:
+	FDelegateHandle EOSLoginCompleteDelegateHandle;
 
 	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	FString EosProductUserId;
 
-private:
-	bool bEosUserRegisterRequested = false;
-
-	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	FString SessionToken;
-
+	// CommandLine -EnableEOSVoice 활성화 여부
 	bool bEnableEOSVoice = false;
 
-public:
-	//const FString& GetSessionToken() const { return SessionToken; }
+// ===== EOS User Registration =====
+private:
+	// Route Account와 EOS PUID 등록 조건 확인
+	void TryRegisterEosUser();
+
+	// Backend에 EOS PUID 등록 요청
+	void RequestRegisterEosUser();
+
+	void HandleRegisterEosUserResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
 
 private:
-	IVoiceChat* VoiceChat = nullptr;
-	IVoiceChatUser* VoiceChatUser = nullptr;
+	// EOS PUID 등록 요청 중복 방지
+	bool bEosUserRegisterRequested = false;
 
+	// Backend EOS PUID 등록 여부
+	bool bEosUserRegistered = false;  
+	
+// ===== Voice Chat =====
+private:
+	// EOS VoiceChat 초기화
 	void InitializeVoiceChat();
 
 	void HandleVoiceChatConnectComplete(const FVoiceChatResult& Result);
 
 	void HandleVoiceChatLoginComplete(const FString& PlayerName, const FVoiceChatResult& Result);
 
+private:
+	// EOS VoiceChat 시스템 인터페이스
+	IVoiceChat* VoiceChat = nullptr;
+
+	// 로컬 플레이어 VoiceChat 인터페이스
+	IVoiceChatUser* VoiceChatUser = nullptr;
+
+	bool bVoiceChatLoggedIn = false;
+
+
+// ===== Voice Room =====
+private:
+	// EOS User 등록 + VoiceChat Login 완료 후 Join 요청
+	void TryRequestVoiceJoin();
+
+	// Backend에 Voice Room 참가 Credential 요청
 	void RequestVoiceJoin();
 
 	void HandleVoiceJoinResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
 
+	// 채널 참가 성공 콜백
+	void HandleVoiceChannelJoinComplete(const FString& ChannelName, const FVoiceChatResult& Result);
+
+private:
 	FString VoiceRoomName;
 	FString VoiceClientBaseUrl;
 	FString VoiceParticipantToken;
 
-	bool bVoiceChatLoggedIn = false;  // VoiceChat 준비됨
 	bool bVoiceJoinRequested = false; // 이미 Join 요청을 보냈음
-	bool bEosUserRegistered = false;  // BackendServer PUID 등록됨
 
-	void TryRequestVoiceJoin();
-
-	// 채널 참가 성공 콜백
-	void HandleVoiceChannelJoinComplete(const FString& ChannelName, const FVoiceChatResult& Result);
-
+// ===== Voice Transmit =====
 public:
 	void StartVoiceTransmit();
 	void StopVoiceTransmit();
+
+public:
+	//const FString& GetSessionToken() const { return SessionToken; }
 
 };

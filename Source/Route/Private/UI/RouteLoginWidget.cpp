@@ -19,10 +19,13 @@ void URouteLoginWidget::NativeConstruct()
 
 	URouteGameInstance* RouteGameInstance = Cast<URouteGameInstance>(GetGameInstance());
 
-	if (RouteGameInstance)
+	if (!RouteGameInstance)
 	{
-		RouteGameInstance->OnLoginResultDelegate.AddDynamic(this, &URouteLoginWidget::HandleLoginResult);
+		UE_LOG(LogTemp, Error, TEXT("RouteGameInstance is null."));
+		return;
 	}
+
+	RouteGameInstance->OnLoginResultDelegate.AddDynamic(this, &URouteLoginWidget::HandleLoginResult);
 }
 
 void URouteLoginWidget::OnLoginClicked()
@@ -35,12 +38,18 @@ void URouteLoginWidget::OnLoginClicked()
 
 	if (!RouteGameInstance)
 	{
+		UE_LOG(LogTemp, Error, TEXT("RouteGameInstance is null. Login request canceled."));
 		return;
 	}
 
 	RouteGameInstance->RequestLogin(LoginID, Password);
 
-	//UE_LOG(LogTemp, Log, TEXT("Login Button Clicked. ID: %s"), *LoginID);
+}
+
+void URouteLoginWidget::HandleLoginResult(bool bSuccess, const FString& Message)
+{
+	Text_Status->SetText(FText::FromString(Message));
+
 }
 
 void URouteLoginWidget::OnRegisterClicked()
@@ -55,9 +64,4 @@ void URouteLoginWidget::OnRegisterClicked()
 	LoginPlayerController->ShowRegisterWidget();
 }
 
-void URouteLoginWidget::HandleLoginResult(bool bSuccess, const FString& Message)
-{
-	Text_Status->SetText(FText::FromString(Message));
-
-}
 

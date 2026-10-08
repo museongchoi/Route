@@ -20,9 +20,9 @@ class ROUTE_API ARouteLoginPlayerController : public APlayerController
 protected:
 	virtual void BeginPlay() override;
 
-private:
-	UFUNCTION()
-	void HandleServerListUpdated();
+// ===== Login UI =====
+public:
+	void ShowLoginWidget();
 
 private:
 	UPROPERTY(EditDefaultsOnly)
@@ -31,16 +31,9 @@ private:
 	UPROPERTY()
 	TObjectPtr<URouteLoginWidget> LoginWidget;
 
-	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<URouteServerListWidget> ServerListWidgetClass;
-
-	UPROPERTY()
-	TObjectPtr<URouteServerListWidget> ServerListWidget;
-
-// Register UI
+// ===== Register UI =====
 public:
 	void ShowRegisterWidget();
-	void ShowLoginWidget();
 
 private:
 	UPROPERTY(EditDefaultsOnly)
@@ -48,4 +41,18 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<URouteRegisterWidget> RegisterWidget;
+
+// ===== Server List UI =====
+private:
+	// Server List 갱신 완료 Delegate Callback
+	UFUNCTION()
+	void HandleServerListUpdated();
+
+private:
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<URouteServerListWidget> ServerListWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<URouteServerListWidget> ServerListWidget;
+
 };
