@@ -1,6 +1,8 @@
 
 # Route
 
+<br>
+
 ## 1. 프로젝트 소개
 
 Unreal Engine 5의 Dedicated Server 기반 멀티플레이 구조를 직접 구성하며  
@@ -8,6 +10,7 @@ Client, Dedicated Server, Backend Server, DB 간의 통신 흐름을 이해하�
 
 서버 등록/조회/접속, 플레이어 상태 동기화, EOS Voice 연동까지 단계적으로 구현했습니다.
 
+<br>
 
 ## 2. 프로젝트 정보
 
@@ -15,6 +18,7 @@ Client, Dedicated Server, Backend Server, DB 간의 통신 흐름을 이해하�
 - 개발 인원: 1인
 - 개발 환경: Unreal Engine 5.4 / C++ / Visual Studio 2022
 
+<br>
 
 ## 3. 기술 스택
 
@@ -26,8 +30,11 @@ Client, Dedicated Server, Backend Server, DB 간의 통신 흐름을 이해하�
 - MySQL Connector/C++
 - Epic Online Services
 
+<br>
 
 ## 4. 실행 구조
+
+<br>
 
 ### 실행 순서
 
@@ -39,6 +46,8 @@ Client, Dedicated Server, Backend Server, DB 간의 통신 흐름을 이해하�
 6. 로그인 후 서버 목록 조회
 7. 서버 선택 후 Dedicated Server 접속
 
+<br>
+
 ### 사용 포트
 
 | 구성 요소 | 포트 |
@@ -48,12 +57,15 @@ Client, Dedicated Server, Backend Server, DB 간의 통신 흐름을 이해하�
 | TCPServer | 9000 |
 | Dedicated Server | 7777+ |
 
+<br>
 
 ## 5. 시스템 아키텍처
 ![Route System Architecture](Docs/Images/route_architecture.png)
 
 Route는 Client, BackendServer, TCPServer, Dedicated Server를 분리하여
 각 서버가 담당하는 역할에 따라 통신하도록 구성했습니다.
+
+<br>
 
 ### 구성 요소 역할
 
@@ -91,6 +103,8 @@ Route는 Client, BackendServer, TCPServer, Dedicated Server를 분리하여
 - PUID 제공
 - EOS Voice 통신 처리
 
+<br>
+
 ### EOS Voice 구조
 
 <p align="center">
@@ -101,8 +115,11 @@ Route는 Client, BackendServer, TCPServer, Dedicated Server를 분리하여
 - BackendServer는 RTC Admin을 통해 Voice Credential 발급을 처리합니다.
 - Client와 BackendServer가 각각 EOS와 통신하여 Voice Room 참여를 구성합니다.
 
+<br>
 
 ## 6. 핵심 구현
+
+<br>
 
 ### Dedicated Server 등록 및 서버 목록 관리
 
@@ -114,6 +131,7 @@ Client는 `GameInstance`에서 서버 목록을 요청하고,
 사용자가 서버를 선택하면 IP와 Port를 이용해
 `ClientTravel()`로 해당 Dedicated Server에 접속합니다.
 
+<br>
 
 ### 접속 인원 및 최대 인원 관리
 
@@ -125,6 +143,7 @@ Client 접속 / 종료 시 현재 인원을 갱신하고
 접속 전 현재 인원과 최대 인원을 비교하여
 서버가 가득 찬 경우 접속을 서버에서 거부합니다.
 
+<br>
 
 ### PlayerState 기반 상태 Replication
 
@@ -137,6 +156,7 @@ Client 접속 / 종료 시 현재 인원을 갱신하고
 Speaking 상태도 동일하게 Replication하여
 다른 Client에서 플레이어의 음성 송신 상태를 확인할 수 있도록 구현했습니다.
 
+<br>
 
 ### EOS Voice 연동
 
@@ -151,8 +171,11 @@ Client는 전달받은 Credential로 Voice Room에 참가합니다.
 
 음성 송신은 Push To Talk 방식으로 구현했습니다.
 
+<br>
 
 ## 7. 트러블슈팅
+
+<br>
 
 ### 최대 인원 초과 Client 접속 차단
 
@@ -171,6 +194,7 @@ Client 접속 / 종료 시 현재 인원을 갱신하여 TCPServer에도 전달�
 서버 목록에 표시되는 인원 상태와 실제 Dedicated Server의
 접속 제한을 일치시킬 수 있었습니다.
 
+<br>
 
 ### Heartbeat 기반 Dedicated Server 상태 관리
 
@@ -188,6 +212,7 @@ TCPServer가 마지막 Heartbeat 시간을 기준으로 서버 상태를 관리�
 **결과**  
 정상 실행 중인 Dedicated Server만 Client의 서버 목록에 제공할 수 있게 되었습니다.
 
+<br>
 
 ### 자체 계정과 EOS PUID 연결
 
@@ -206,6 +231,7 @@ BackendServer는 인증된 계정과 PUID의 관계를 DB에 저장하여
 자체 계정 시스템을 유지하면서도
 로그인한 사용자를 기준으로 EOS Voice 기능을 사용할 수 있게 되었습니다.
 
+<br>
 
 ### BackendServer 기반 EOS Voice Credential 발급
 
@@ -223,6 +249,7 @@ BackendServer가 EOS와 통신하여 Voice Credential을 발급한 뒤 Client에
 서버 권한이 필요한 EOS 처리를 BackendServer에 분리하여
 Client에 서버용 Secret을 노출하지 않고 Voice Room에 참가할 수 있도록 구성했습니다.
 
+<br>
 
 # ThirdParty
 
