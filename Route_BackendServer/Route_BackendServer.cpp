@@ -71,7 +71,7 @@ mutex SessionMutex;
 queue<shared_ptr<VoiceJoinRequest>> VoiceJoinQueue;
 mutex VoiceJoinQueueMutex;
 
-
+// EOS 서버용 Config 파일
 bool LoadEosConfig(EosServerConfig& Config)
 {
 	ifstream ConfigFile("Config/EOSSecrets.ini");
@@ -127,14 +127,14 @@ bool LoadEosConfig(EosServerConfig& Config)
 	return true;
 }
 
-// 1. 설정 파일 읽기
+// DB 비밀번호 로드
 bool LoadDbPassword(string& Password)
 {
 	ifstream DbConfigFile("Config/DBSecrets.ini");
 
 	if (!DbConfigFile.is_open())
 	{
-		std::cout << "Config : Failed open Config/DBSecrets.ini" << "\n";
+		cout << "Config : Failed open Config/DBSecrets.ini" << "\n";
 		return false;
 	}
 
@@ -142,14 +142,14 @@ bool LoadDbPassword(string& Password)
 
 	if (Password.empty())
 	{
-		std::cout << "Config : PW empty" << "\n";
+		cout << "Config : PW empty" << "\n";
 		return false;
 	}
 
 	return true;
 }
 
-// 2. DB 연결 생성
+// MySQL 연결 생성 및 Route 스키마 선택
 unique_ptr<sql::Connection> CreateMySqlConnection()
 {
 	// PW 읽어오기
@@ -164,7 +164,7 @@ unique_ptr<sql::Connection> CreateMySqlConnection()
 
 	if (Driver == nullptr)
 	{
-		std::cout << "MySQL : Driver is null." << "\n";
+		cout << "MySQL : Driver is null." << "\n";
 		return nullptr;
 	}
 
@@ -181,7 +181,7 @@ unique_ptr<sql::Connection> CreateMySqlConnection()
 	return Conn;
 }
 
-// 3. DB 연결 테스트
+// MySQL 연결 상태 확인
 bool TestMySqlConnection()
 {
 	cout << "MySQL : TestMySqlConnection() entered." << "\n";
@@ -231,36 +231,7 @@ bool TestMySqlConnection()
 	}
 }
 
-bool SaveOrUpdateEosUser(sql::Connection* Conn, int AccountId, const string& EosPuid)
-{
-	try
-	{
-		unique_ptr<sql::PreparedStatement> Statement(
-			Conn->prepareStatement(
-				"INSERT INTO account_eos "
-				"(account_id, eos_puid)"
-				"VALUES (?, ?) "
-				"ON DUPLICATE KEY UPDATE "
-				"eos_puid = VALUES(eos_puid)"
-			)
-		);
-
-		Statement->setInt(1, AccountId);
-		Statement->setString(2, EosPuid);
-
-		Statement->executeUpdate();
-
-		return true;
-	}
-	catch (sql::SQLException& Error)
-	{
-		cerr << "SaveOrUpdateEosUser : DB Error : " << Error.what() << endl;
-
-		return false;
-	}
-}
-
-// SessionToken 생성 함수
+// SessionToken 생성 (32byte 랜덤)
 string GenerateSessionToken()
 {
 	array<unsigned char, 32> RandomBytes{};
@@ -284,7 +255,7 @@ string GenerateSessionToken()
 	return Token;
 }
 
-// Session 저장/조회 함수
+// SessionToken 저장
 void SaveSession(const string& Token, int AccountId)
 {
 	lock_guard<mutex> Lock(SessionMutex);
@@ -292,6 +263,7 @@ void SaveSession(const string& Token, int AccountId)
 	SessionMap[Token] = AccountId;
 }
 
+// SessionToken으로 AccountId 조회
 bool GetAccountIdFromSession(const string& Token, int& OutAccountId)
 {
 	lock_guard<mutex> Lock(SessionMutex);
@@ -308,6 +280,7 @@ bool GetAccountIdFromSession(const string& Token, int& OutAccountId)
 	return true;
 }
 
+// EOS SDK 초기화
 bool InitializeEOS()
 {
 	EOS_InitializeOptions Options{};
@@ -328,7 +301,7 @@ bool InitializeEOS()
 	return true;
 }
 
-// EOS_HPlayfrom 생성
+// Trusted Server용 EOS Platform 및 RTC 설정 생성
 EOS_HPlatform CreateEosPlatform(const EosServerConfig& Config)
 {
 	EOS_Windows_RTCOptions WindowsRtcOptions{};
@@ -362,7 +335,7 @@ EOS_HPlatform CreateEosPlatform(const EosServerConfig& Config)
 
 	if (Platform == nullptr)
 	{
-		cout << "EOS : Playform create failed." << "\n";
+		cout << "EOS : Platform create failed." << "\n";
 		return nullptr;
 	}
 
@@ -378,18 +351,15 @@ void EOS_CALL EosLogCallback(const EOS_LogMessage* Message)
 		return;
 	}
 
-	cout
-		<< "EOS SDK [" << Message->Category << "] "
-		<< Message->Message
-		<< "\n";
+	cout << "EOS SDK [" << Message->Category << "] " << Message->Message << "\n";
 }
 
+// AccountId에 매핑된 EOS PUID를 DB에서 조회
 bool GetEosPuidByAccountId(int AccountId, string& OutEosPuid)
 {
 	try
 	{
-		unique_ptr<sql::Connection> Conn =
-			CreateMySqlConnection();
+		unique_ptr<sql::Connection> Conn = CreateMySqlConnection();
 
 		if (!Conn)
 		{
@@ -406,32 +376,26 @@ bool GetEosPuidByAccountId(int AccountId, string& OutEosPuid)
 
 		Statement->setInt(1, AccountId);
 
-		unique_ptr<sql::ResultSet> Result(
-			Statement->executeQuery()
-		);
+		unique_ptr<sql::ResultSet> Result(Statement->executeQuery());
 
 		if (!Result->next())
 		{
 			return false;
 		}
 
-		OutEosPuid =
-			Result->getString("eos_puid").asStdString();
+		OutEosPuid = Result->getString("eos_puid").asStdString();
 
 		return !OutEosPuid.empty();
 	}
 	catch (const sql::SQLException& Err)
 	{
-		cout
-			<< "MySQL : Get EOS PUID failed. "
-			<< Err.what()
-			<< "\n";
+		cout << "MySQL : Get EOS PUID failed. " << Err.what() << "\n";
 
 		return false;
 	}
 }
 
-// Queue 함수
+// HTTP Thread -> Voice 참가 요청 -> Queue 등록
 void EnqueueVoiceJoinRequest(const shared_ptr<VoiceJoinRequest>& Request)
 {
 	lock_guard<mutex> Lock(VoiceJoinQueueMutex);
@@ -439,6 +403,7 @@ void EnqueueVoiceJoinRequest(const shared_ptr<VoiceJoinRequest>& Request)
 	VoiceJoinQueue.push(Request);
 }
 
+// EOS Voice 참가 토큰 요청 완료 후 ClientBaseUrl / ParticipantToken 등을 저장하고 대기 Thread에 알림
 void EOS_CALL OnQueryJoinRoomTokenComplete(const EOS_RTCAdmin_QueryJoinRoomTokenCompleteCallbackInfo* Data)
 {
 	unique_ptr<VoiceJoinCallbackContext> Context(static_cast<VoiceJoinCallbackContext*>(Data->ClientData));
@@ -507,7 +472,7 @@ void EOS_CALL OnQueryJoinRoomTokenComplete(const EOS_RTCAdmin_QueryJoinRoomToken
 	Request->RequestCondition.notify_one();
 }
 
-// Main Thread 에서 Queue 처리
+// Main Thread -> Voice 요청 Queue를 꺼내 -> EOS RTC Admin 비동기 요청 시작
 void ProcessVoiceJoinRequests(EOS_HRTCAdmin RtcAdmin)
 {
 	while (true)
@@ -579,6 +544,7 @@ void ProcessVoiceJoinRequests(EOS_HRTCAdmin RtcAdmin)
 	}
 }
 
+// BackendServer 초기화, HTTP API 등록, HTTP Thread 실행, EOS Main Thread Tick 수행
 int main()
 {
 	EosServerConfig EosConfig;
@@ -598,10 +564,7 @@ int main()
 
 	EOS_Logging_SetCallback(EosLogCallback);
 
-	EOS_Logging_SetLogLevel(
-		EOS_ELogCategory::EOS_LC_ALL_CATEGORIES,
-		EOS_ELogLevel::EOS_LOG_VeryVerbose
-	);
+	EOS_Logging_SetLogLevel(EOS_ELogCategory::EOS_LC_ALL_CATEGORIES, EOS_ELogLevel::EOS_LOG_VeryVerbose);
 
 	EOS_HPlatform EosPlatform = CreateEosPlatform(EosConfig);
 
@@ -611,15 +574,7 @@ int main()
 		return 1;
 	}
 
-	//
-	// RTC 일반 Interface 확인
-	EOS_HRTC Rtc = EOS_Platform_GetRTCInterface(EosPlatform);
-
-	cout << "EOS : RTC Interface = " << (Rtc != nullptr ? "Valid" : "Null") << "\n";
-
 	EOS_HRTCAdmin RtcAdmin = EOS_Platform_GetRTCAdminInterface(EosPlatform);
-
-	//
 	cout << "EOS : RTC Admin Interface = " << (RtcAdmin != nullptr ? "Valid" : "Null") << "\n";
 
 	if (RtcAdmin == nullptr)
@@ -775,11 +730,11 @@ int main()
 			}
 
 			// JSON 값 추출
-			const string LoginID = ReqJson["login_id"].get<string>();
+			const string LoginId = ReqJson["login_id"].get<string>();
 			const string Password = ReqJson["password"].get<string>();
 
 			// 빈 문자열 확인
-			if (LoginID.empty() || Password.empty())
+			if (LoginId.empty() || Password.empty())
 			{
 				Res.status = 400;
 				Res.set_content(
@@ -812,7 +767,7 @@ int main()
 				)
 			);
 
-			LoginStmt->setString(1, LoginID);
+			LoginStmt->setString(1, LoginId);
 			LoginStmt->setString(2, Password);
 
 			unique_ptr<sql::ResultSet> Result(LoginStmt->executeQuery());
@@ -832,7 +787,7 @@ int main()
 			const int AccountId = Result->getInt("account_id");
 			const string Nickname = Result->getString("nickname").asStdString();
 
-			// /login 성송 시 SessionToken 생성
+			// /login 성공 시 SessionToken 생성
 
 			const string SessionToken = GenerateSessionToken();
 
@@ -919,9 +874,6 @@ int main()
 			// 4. Request Body JSON 파싱
 			const json ReqJson = json::parse(Req.body);
 
-			// 이제 account_id 는 클라이언트가 보내지 않음
-
-			//if (!ReqJson.contains("account_id") || !ReqJson.contains("eos_puid"))
 			if (!ReqJson.contains("eos_puid"))
 			{
 				Res.status = 400;
@@ -932,10 +884,8 @@ int main()
 				return;
 			}
 
-			//const int AccountId = ReqJson["account_id"].get<int>();
 			const string EosPuid = ReqJson["eos_puid"].get<string>();
 
-			//if (AccountId <= 0 || EosPuid.empty())
 			if (EosPuid.empty())
 			{
 				Res.status = 400;
@@ -1003,7 +953,7 @@ int main()
 	// /voice/join
 	Svr.Post("/voice/join", [](const httplib::Request& Req, httplib::Response& Res)
 		{
-			// 1. Authoriaztion Header 확인
+			// 1. Authorization  Header 확인
 			const string Authorization = Req.get_header_value("Authorization");
 
 			const string Prefix = "Bearer ";
@@ -1078,7 +1028,6 @@ int main()
 				return;
 			}
 
-			// --
 			if (!VoiceRequest->bSuccess)
 			{
 				Res.status = 500;
@@ -1099,27 +1048,12 @@ int main()
 			json ResponseJson;
 
 			ResponseJson["success"] = true;
-			ResponseJson["room_name"] =
-				VoiceRequest->RoomName;
-
-			ResponseJson["client_base_url"] =
-				VoiceRequest->ClientBaseUrl;
-
-			ResponseJson["participant_token"] =
-				VoiceRequest->ParticipantToken;
+			ResponseJson["room_name"] = VoiceRequest->RoomName;
+			ResponseJson["client_base_url"] = VoiceRequest->ClientBaseUrl;
+			ResponseJson["participant_token"] = VoiceRequest->ParticipantToken;
 
 			Res.status = 200;
-			Res.set_content(
-				ResponseJson.dump(),
-				"application/json"
-			);
-
-			//// 7. 처리 완료
-			//Res.status = 200;
-			//Res.set_content(
-			//	R"({"success":true,"message":"voice join request processed"})",
-			//	"application/json"
-			//);
+			Res.set_content(ResponseJson.dump(), "application/json");
 		}
 	);
 

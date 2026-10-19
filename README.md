@@ -251,7 +251,31 @@ Client에 서버용 Secret을 노출하지 않고 Voice Room에 참가할 수 �
 
 <br>
 
-# ThirdParty
+## 8. 외부 라이브러리 및 SDK
 
-[MySQL Connector/C++ 9.7.0 ZIP Archive](https://dev.mysql.com/downloads/connector/cpp/) 를 다운로드하여
-ThirdParty/MySQLConnector 경로에 include, lib64, bin 폴더를 배치한다.
+### MySQL Connector/C++ 9.7.0
+BackendServer와 TCPServer에서 MySQL 연동에 사용.
+
+- [MySQL Connector/C++ 9.7.0 ZIP Archive](https://dev.mysql.com/downloads/connector/cpp/)
+- `ThirdParty/MySQLConnector` 경로에 `include`, `lib64`, `bin` 폴더를 배치합니다.
+
+### Epic Online Services
+EOS Login, PUID, Voice 기능과 BackendServer의 RTC Admin 처리에 사용.
+
+- [Epic Online Services Documentation](https://dev.epicgames.com/docs/epic-online-services)
+- [EOS Voice / RTC Documentation](https://dev.epicgames.com/docs/epic-online-services/multiplayer/voice-and-rtc-interface/voice-interface/using-voice)
+- [Epic Games Developer Portal](https://dev.epicgames.com/portal/)
+
+Client는 Unreal Engine의 EOS / EOS Voice Chat 플러그인을 사용하고,
+BackendServer는 EOS SDK의 RTC Admin Interface를 사용.
+EOS RTC 사용을 위해 `xaudio2_9redist.dll`이 필요합니다.
+
+### cpp-httplib
+BackendServer의 HTTP 서버 및 REST API 구현에 사용한 header-only C++ 라이브러리.
+
+- [cpp-httplib GitHub](https://github.com/yhirose/cpp-httplib)
+
+### nlohmann/json
+BackendServer와 TCPServer의 JSON 파싱 및 생성에 사용한 header-only C++ 라이브러리.
+
+- [nlohmann/json GitHub](https://github.com/nlohmann/json)
