@@ -560,7 +560,7 @@ int main()
 								ResponseMessage = MakeResponseMessage(false, "server not found");
 							}
 
-							ResponseMessage = ResponseJson.dump() + "\n";
+							//ResponseMessage = ResponseJson.dump() + "\n";
 						}
 					}
 					else

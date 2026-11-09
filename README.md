@@ -1,6 +1,8 @@
 
 # Route
 
+🎥 Demo Video: [UE5 Dedicated Server 멀티플레이 구조 구현 및 동작 시연](https://youtu.be/njsBDh9y52s)
+
 <br>
 
 ## 1. 프로젝트 소개
@@ -63,7 +65,7 @@ Client, Dedicated Server, Backend Server, DB 간의 통신 흐름을 이해하�
 ![Route System Architecture](Docs/Images/route_architecture.png)
 
 Route는 Client, BackendServer, TCPServer, Dedicated Server를 분리하여
-각 서버가 담당하는 역할에 따라 통신하도록 구성했습니다.
+각 서버가 담당하는 역할에 따라 통신하도록 구성.
 
 <br>
 
@@ -180,74 +182,60 @@ Client는 전달받은 Credential로 Voice Room에 참가합니다.
 ### 최대 인원 초과 Client 접속 차단
 
 **문제**  
-서버 목록에서 최대 인원 도달 여부를 확인하더라도,
-Client가 직접 서버 주소로 접속하는 경우 실제 접속을 제한할 수 있어야 했습니다.
+서버 목록에서 최대 인원 도달 여부를 확인하더라도, Client가 직접 서버 주소로 접속할 경우 실제 접속을 제한할 수 없는 문제.
 
 **해결**  
-Dedicated Server의 `GameMode`에서 Client 접속 전에
-현재 인원과 최대 인원을 비교하도록 구성했습니다.
+Dedicated Server의 `GameMode`에서 Client 접속 전 현재 인원과 최대 인원을 비교하도록 구성.
 
-최대 인원에 도달한 경우 서버에서 접속을 거부하고,
-Client 접속 / 종료 시 현재 인원을 갱신하여 TCPServer에도 전달했습니다.
+최대 인원 도달 시 서버에서 접속을 거부하고, Client 접속 / 종료 시 현재 인원을 갱신하여 TCPServer에 전달.
 
 **결과**  
-서버 목록에 표시되는 인원 상태와 실제 Dedicated Server의
-접속 제한을 일치시킬 수 있었습니다.
+서버 목록의 인원 상태와 실제 Dedicated Server의 접속 제한 상태 일치.
 
 <br>
 
 ### Heartbeat 기반 Dedicated Server 상태 관리
 
 **문제**  
-Dedicated Server가 TCPServer에 한 번 등록된 이후 종료되면,
-DB에 남아 있는 서버 정보만으로는 실제 실행 여부를 판단할 수 없었습니다.
+Dedicated Server가 TCPServer에 등록된 이후 종료될 경우, DB에 남아 있는 서버 정보만으로 실제 실행 여부를 판단할 수 없는 문제.
 
 **해결**  
-Dedicated Server가 일정 주기로 TCPServer에 Heartbeat를 전송하고,
-TCPServer가 마지막 Heartbeat 시간을 기준으로 서버 상태를 관리하도록 구성했습니다.
+Dedicated Server가 일정 주기로 TCPServer에 Heartbeat를 전송하고, TCPServer가 마지막 Heartbeat 시간을 기준으로 서버 상태를 관리하도록 구성.
 
-일정 시간 동안 Heartbeat가 수신되지 않은 서버는
-현재 접속 가능한 서버 목록에서 제외하도록 처리했습니다.
+일정 시간 동안 Heartbeat가 수신되지 않은 서버를 현재 접속 가능한 서버 목록에서 제외.
 
 **결과**  
-정상 실행 중인 Dedicated Server만 Client의 서버 목록에 제공할 수 있게 되었습니다.
+정상 실행 중인 Dedicated Server만 Client 서버 목록에 제공.
 
 <br>
 
 ### 자체 계정과 EOS PUID 연결
 
 **문제**  
-자체 로그인 시스템의 계정과 EOS 사용자는 서로 다른 식별자를 사용하기 때문에,
-로그인한 사용자가 어떤 EOS 사용자에 해당하는지 연결할 방법이 필요했습니다.
+자체 로그인 시스템의 계정과 EOS 사용자가 서로 다른 식별자를 사용하여, 로그인 사용자와 EOS 사용자를 연결할 방법이 필요한 문제.
 
 **해결**  
-자체 로그인 성공 시 발급한 `SessionToken`으로 사용자를 인증하고,
-Client가 EOS 로그인으로 획득한 PUID를 BackendServer에 전달하도록 구성했습니다.
+자체 로그인 성공 시 발급한 `SessionToken`으로 사용자를 인증하고, Client가 EOS 로그인으로 획득한 PUID를 BackendServer에 전달하도록 구성.
 
-BackendServer는 인증된 계정과 PUID의 관계를 DB에 저장하여
-두 사용자 체계를 연결했습니다.
+BackendServer에서 인증된 계정과 PUID 관계를 DB에 저장하여 두 사용자 식별 체계를 연결.
 
 **결과**  
-자체 계정 시스템을 유지하면서도
-로그인한 사용자를 기준으로 EOS Voice 기능을 사용할 수 있게 되었습니다.
+기존 자체 계정 시스템을 유지하면서 로그인 사용자를 기준으로 EOS Voice 기능 사용 가능.
 
 <br>
 
 ### BackendServer 기반 EOS Voice Credential 발급
 
 **문제**  
-EOS Voice Room 참가에 필요한 서버 권한 처리를 Client에서 수행하면
-서버용 Credential과 Secret 정보가 Client에 노출될 수 있었습니다.
+EOS Voice Room 참가에 필요한 서버 권한을 Client에서 처리할 경우 서버용 Credential과 Secret 정보가 Client에 포함될 수 있는 보안 위험.
 
 **해결**  
-EOS RTC Admin Interface를 BackendServer에서 사용하도록 분리했습니다.
+EOS RTC Admin Interface를 BackendServer에서 처리하도록 역할 분리.
 
-Client는 로그인 과정에서 발급받은 `SessionToken`으로 BackendServer에 Voice 참가를 요청하고,
-BackendServer가 EOS와 통신하여 Voice Credential을 발급한 뒤 Client에 필요한 정보만 반환하도록 구성했습니다.
+Client는 로그인 과정에서 발급받은 `SessionToken`으로 BackendServer에 Voice 참가 요청, BackendServer가 EOS와 통신하여 Voice Credential 발급 후 Client에 필요한 정보만 반환.
 
 **결과**  
-서버 권한이 필요한 EOS 처리를 BackendServer에 분리하여
-Client에 서버용 Secret을 노출하지 않고 Voice Room에 참가할 수 있도록 구성했습니다.
+서버 권한이 필요한 EOS 처리를 BackendServer로 분리하여 Client에 서버용 Secret을 포함하지 않고 Voice Room 참가 가능.
 
 <br>
 
