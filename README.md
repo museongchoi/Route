@@ -1,7 +1,7 @@
 
 # Route
 
-🎥 Demo Video: [UE5 Dedicated Server 멀티플레이 구조 구현 및 동작 시연](https://youtu.be/njsBDh9y52s)
+🎥 Demo Video: [UE5 Dedicated Server 멀티플레이 구조 동작 시연](https://youtu.be/njsBDh9y52s)
 
 <br>
 
